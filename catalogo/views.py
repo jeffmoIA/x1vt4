@@ -1,32 +1,144 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib import messages
+from django.db.models import Q
 from .models import Producto, Categoria, Marca
+from .forms import ProductoForm
 
-def products_list(request):
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib import messages
+from django.db.models import Q
+from .models import Producto, Categoria, Marca
+from .forms import ProductoForm
+
+# Función auxiliar para verificar si el usuario es administrador
+def es_admin(user):
+    return user.is_staff
+
+# === VISTAS DE ADMINISTRACIÓN (CRUD) ===
+
+# Lista de productos (Admin)
+@login_required
+@user_passes_test(es_admin)
+def admin_lista_productos(request):
+    productos = Producto.objects.all().order_by('-fecha_creacion')
+    return render(request, 'catalogo/admin/lista_productos.html', {
+        'productos': productos
+    })
+
+# Crear nuevo producto
+@login_required
+@user_passes_test(es_admin)
+def crear_producto(request):
+    if request.method == 'POST':
+        form = ProductoForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Producto creado exitosamente')
+            return redirect('catalogo:admin_lista_productos')
+    else:
+        form = ProductoForm()
+    
+    return render(request, 'catalogo/admin/editar_producto.html', {
+        'form': form,
+        'accion': 'Crear'
+    })
+
+# Editar producto existente
+@login_required
+@user_passes_test(es_admin)
+def editar_producto(request, producto_id):
+    producto = get_object_or_404(Producto, id=producto_id)
+    
+    if request.method == 'POST':
+        form = ProductoForm(request.POST, request.FILES, instance=producto)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Producto actualizado exitosamente')
+            return redirect('catalogo:admin_lista_productos')
+    else:
+        form = ProductoForm(instance=producto)
+    
+    return render(request, 'catalogo/admin/editar_producto.html', {
+        'form': form,
+        'producto': producto,
+        'accion': 'Editar'
+    })
+
+# Eliminar producto
+@login_required
+@user_passes_test(es_admin)
+def eliminar_producto(request, producto_id):
+    producto = get_object_or_404(Producto, id=producto_id)
+    
+    if request.method == 'POST':
+        producto.delete()
+        messages.success(request, 'Producto eliminado exitosamente')
+        return redirect('catalogo:admin_lista_productos')
+    
+    return render(request, 'catalogo/admin/confirmar_eliminar.html', {
+        'producto': producto
+    })
+
+def lista_productos(request):
     # Obtener todos los productos disponibles
-    products = Producto.objects.filter(available=True)
+    productos = Producto.objects.filter(disponible=True)
+    
+    # Obtener todas las categorías y marcas para los filtros laterales
+    categorias = Categoria.objects.all()
+    marcas = Marca.objects.all()
+    
+    # Búsqueda (opcional)
+    query = request.GET.get('q')
+    if query:
+        productos = productos.filter(
+            Q(nombre__icontains=query) | 
+            Q(descripcion__icontains=query)
+        )
+    
+    return render(request, 'catalogo/lista_productos.html', {
+        'productos': productos,
+        'categorias': categorias,
+        'marcas': marcas,
+        'query': query
+    })
 
-    return render(request, 'catalogo/products_list.html', {'products': products})
-
-def product_detail(request, product_id):
+def detalle_producto(request, producto_id):
     # Obtener un producto específico por su ID
-    product = get_object_or_404(Producto, id=product_id, available=True)
+    producto = get_object_or_404(Producto, id=producto_id, disponible=True)
+    
+    # Obtener productos relacionados (misma categoría, excluyendo el actual)
+    productos_relacionados = Producto.objects.filter(
+        categoria=producto.categoria,
+        disponible=True
+    ).exclude(id=producto_id)[:4]  # Limitamos a 4 productos relacionados
+    
+    return render(request, 'catalogo/detalle_producto.html', {
+        'producto': producto,
+        'productos_relacionados': productos_relacionados
+    })
 
-    return render(request, 'catalogo/product_detail.html', {'product': product})
-
-def products_by_category(request, category_id):
+def productos_por_categoria(request, categoria_id):
     # Obtener la categoría o devolver un 404 si no existe
-    category = get_object_or_404(Categoria, id=category_id)
-
+    categoria = get_object_or_404(Categoria, id=categoria_id)
+    
     # Obtener todos los productos de esa categoría
-    products = Producto.objects.filter(category=category, available=True)
+    productos = Producto.objects.filter(categoria=categoria, disponible=True)
+    
+    return render(request, 'catalogo/lista_productos.html', {
+        'productos': productos,
+        'categoria': categoria
+    })
 
-    return render(request, 'catalogo/products_list.html', {'category': category, 'products': products})
-
-def products_by_brand(request, brand_id):
+def productos_por_marca(request, marca_id):
     # Obtener la marca o devolver un 404 si no existe
-    brand = get_object_or_404(Marca, id=brand_id)
-
+    marca = get_object_or_404(Marca, id=marca_id)
+    
     # Obtener todos los productos de esa marca
-    products = Producto.objects.filter(brand=brand, available=True)
-
-    return render(request, 'catalogo/products_list.html', {'brand': brand, 'products': products})
+    productos = Producto.objects.filter(marca=marca, disponible=True)
+    
+    return render(request, 'catalogo/lista_productos.html', {
+        'productos': productos,
+        'marca': marca
+    })

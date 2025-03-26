@@ -78,4 +78,16 @@
             {% endfor %}
         </div>
     </div>
+    {% if producto.stock > 0 %}
+    <div class="d-grid gap-2">
+        <a href="{% url 'carrito:agregar_al_carrito' producto.id %}" class="btn btn-primary btn-lg">
+            <i class="fas fa-cart-plus"></i> Añadir al carrito
+        </a>
+        <a href="{% url 'carrito:ver_carrito' %}" class="btn btn-outline-primary">Ver carrito</a>
+    </div>
+{% else %}
+    <div class="alert alert-warning">
+        Este producto está actualmente agotado. Regrese más tarde.
+    </div>
+{% endif %}
 {% endblock %}

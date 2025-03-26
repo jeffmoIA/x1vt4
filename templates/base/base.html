@@ -19,6 +19,7 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
+                <!-- Menú de navegación normal -->
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'tienda:inicio' %}">Inicio</a>
@@ -32,11 +33,75 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'tienda:contacto' %}">Contacto</a>
                     </li>
+                    {% if user.is_authenticated %}
+                        <li class="nav-item">
+                           <a class="nav-link" href="{% url 'pedidos:lista_pedidos' %}">Mis Pedidos</a>
+                        </li>
+                    {% endif %}
+                    
+                    <!-- Enlaces de administración (solo para administradores) -->
+                    {% if user.is_authenticated and user.is_staff %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" 
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-cog"></i> Administración
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="adminDropdown">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'catalogo:admin_lista_productos' %}">
+                                    <i class="fas fa-boxes"></i> Gestionar Productos
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'admin:index' %}">
+                                    <i class="fas fa-tools"></i> Panel de Django
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    {% endif %}
                 </ul>
-                <form class="d-flex" action="{% url 'catalogo:lista_productos' %}" method="get">
-                    <input class="form-control me-2" type="search" name="q" placeholder="Buscar productos...">
-                    <button class="btn btn-outline-light" type="submit">Buscar</button>
-                </form>
+                
+                <ul class="navbar-nav">
+                    <!-- Carrito de compras -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'carrito:ver_carrito' %}">
+                            <i class="fas fa-shopping-cart"></i> Carrito
+                            {% if request.user.is_authenticated %}
+                                <!-- Este código asume que has recuperado el carrito en un contexto global -->
+                                {% with total_items=carrito_count|default:0 %}
+                                    {% if total_items > 0 %}
+                                        <span class="badge bg-danger">{{ total_items }}</span>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </a>
+                    </li>
+                    
+                    <!-- Menú de usuario -->
+                    {% if user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user"></i> {{ user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li><a class="dropdown-item" href="{% url 'usuarios:perfil' %}">Mi Perfil</a></li>
+                                {% if user.is_staff %}
+                                    <li><a class="dropdown-item" href="{% url 'admin:index' %}">Administración</a></li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'usuarios:logout' %}">Cerrar Sesión</a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'usuarios:login' %}">Iniciar Sesión</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'usuarios:registro' %}">Registrarse</a>
+                        </li>
+                    {% endif %}
+                </ul>
             </div>
         </div>
     </nav>

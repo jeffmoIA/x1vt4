@@ -1,0 +1,31 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Cancelar pedido - Moto Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">Confirmar cancelación</h4>
+                </div>
+                <div class="card-body">
+                    <p class="alert alert-warning">
+                        ¿Estás seguro que deseas cancelar el pedido #{{ pedido.id }}?
+                    </p>
+                    <p>Esta acción no se puede deshacer.</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'pedidos:detalle_pedido' pedido.id %}" class="btn btn-secondary">Volver</a>
+                            <button type="submit" class="btn btn-danger">Confirmar cancelación</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

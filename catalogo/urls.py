@@ -15,4 +15,9 @@ urlpatterns = [
 
     # Vista para listar productos por marca
     path('marca/<int:marca_id>/', views.productos_por_marca, name='productos_por_marca'),
+    path('admin/productos/', views.admin_lista_productos, name='admin_lista_productos'),
+    path('admin/productos/crear/', views.crear_producto, name='crear_producto'),
+    path('admin/productos/<int:producto_id>/editar/', views.editar_producto, name='editar_producto'),
+    path('admin/productos/<int:producto_id>/eliminar/', views.eliminar_producto, name='eliminar_producto'),
+
 ]

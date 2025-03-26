@@ -16,7 +16,7 @@ class Categoria(models.Model):
 
     class Meta:
         # Clase que permite configurar opciones adicionales del modelo
-        verbose_nombre_plural = "Categorías"  # Nombre correcto en plural para el admin
+        verbose_name_plural = "Categorías"  # Nombre correcto en plural para el admin
 
 class Marca(models.Model):
     # Nombre de la marca (Honda, Yamaha, Alpinestars, etc.)
@@ -43,11 +43,11 @@ class Producto(models.Model):
      # Relación con otros modelos:
     # - ForeignKey crea una relación uno-a-muchos (una categoría puede tener muchos productos)
     # - on_delete=models.CASCADE significa que si se elimina una categoría, se eliminan todos sus productos
-    # - related_nombre permite acceder a los productos desde la categoría usando categoria.productos.all()
-    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_nombre='productos')
+    # - related_name permite acceder a los productos desde la categoría usando categoria.productos.all()
+    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='productos')
 
      # Relación con la marca del producto
-    logo = models.ForeignKey(Marca, on_delete=models.CASCADE, related_nombre='productos')
+    marca = models.ForeignKey(Marca, on_delete=models.CASCADE, related_name='productos')
 
      # Información de inventario
     stock = models.PositiveIntegerField(default=0) # Cantidad de productos disponibles

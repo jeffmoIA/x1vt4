@@ -24,8 +24,16 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # URLs de la aplicación catálogo
     path('catalogo/', include('catalogo.urls')),
+    # URLs de la aplicación usuarios
+    path('usuarios/', include('usuarios.urls')),
+    # URLs de la aplicación carrito
+    path('carrito/', include('carrito.urls')),
+    # URLs de la aplicación pedidos
+    path('pedidos/', include('pedidos.urls')),
     # URL para la página principal (root)
     path('', include('tienda.urls')),
+    
+    
 ]
 
 # Configuración para servir archivos de medios durante desarrollo
