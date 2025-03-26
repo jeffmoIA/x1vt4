@@ -1,0 +1,81 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ producto.nombre }}{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <!-- Imagen del producto -->
+        <div class="col-md-6">
+            <div class="card">
+                {% if producto.imagen %}
+                    <img src="{{ producto.imagen.url }}" class="card-img-top img-fluid" alt="{{ producto.nombre }}">
+                {% else %}
+                    <img src="https://via.placeholder.com/600x400?text=Sin+imagen" class="card-img-top img-fluid" alt="{{ producto.nombre }}">
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Información del producto -->
+        <div class="col-md-6">
+            <h1 class="mb-3">{{ producto.nombre }}</h1>
+            
+            <div class="mb-3">
+                <span class="badge bg-primary">{{ producto.categoria.nombre }}</span>
+                <span class="badge bg-secondary">{{ producto.marca.nombre }}</span>
+            </div>
+            
+            <h2 class="text-primary mb-4">${{ producto.precio }}</h2>
+            
+            <div class="mb-4">
+                {% if producto.stock > 0 %}
+                    <span class="badge bg-success">En stock ({{ producto.stock }} disponibles)</span>
+                {% else %}
+                    <span class="badge bg-danger">Agotado</span>
+                {% endif %}
+            </div>
+            
+            <div class="mb-4">
+                <h5>Descripción:</h5>
+                <p>{{ producto.descripcion }}</p>
+            </div>
+            
+            {% if producto.stock > 0 %}
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary btn-lg">Añadir al carrito</button>
+                    <button class="btn btn-outline-primary">Comprar ahora</button>
+                </div>
+            {% else %}
+                <div class="alert alert-warning">
+                    Este producto está actualmente agotado. Regrese más tarde.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Productos relacionados -->
+    <div class="mt-5">
+        <h3 class="mb-4">Productos relacionados</h3>
+        <div class="row">
+            {% for producto_rel in productos_relacionados %}
+                <div class="col-md-3 mb-4">
+                    <div class="card h-100">
+                        {% if producto_rel.imagen %}
+                            <img src="{{ producto_rel.imagen.url }}" class="card-img-top" alt="{{ producto_rel.nombre }}">
+                        {% else %}
+                            <img src="https://via.placeholder.com/300x200?text=Sin+imagen" class="card-img-top" alt="{{ producto_rel.nombre }}">
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ producto_rel.nombre }}</h5>
+                            <p class="card-text text-primary fw-bold">${{ producto_rel.precio }}</p>
+                            <a href="{% url 'catalogo:detalle_producto' producto_rel.id %}" class="btn btn-sm btn-outline-primary">Ver detalles</a>
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col-12">
+                    <p class="text-center">No hay productos relacionados.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends 'base/base.html' %}
+
+{% block title %}
+    {% if categoria %}
+        Productos en {{ categoria.nombre }}
+    {% elif marca %}
+        Productos de {{ marca.nombre }}
+    {% else %}
+        Todos los productos
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <!-- Barra lateral con filtros -->
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Filtros</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Categorías</h6>
+                    <ul class="list-unstyled">
+                        {% for cat in categorias %}
+                            <li class="mb-2">
+                                <a href="{% url 'catalogo:productos_por_categoria' cat.id %}" class="text-decoration-none">
+                                    {{ cat.nombre }}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <hr>
+                    
+                    <h6>Marcas</h6>
+                    <ul class="list-unstyled">
+                        {% for m in marcas %}
+                            <li class="mb-2">
+                                <a href="{% url 'catalogo:productos_por_marca' m.id %}" class="text-decoration-none">
+                                    {{ m.nombre }}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Lista de productos -->
+        <div class="col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    {% if categoria %}
+                        Productos en {{ categoria.nombre }}
+                    {% elif marca %}
+                        Productos de {{ marca.nombre }}
+                    {% else %}
+                        Todos los productos
+                    {% endif %}
+                </h1>
+            </div>
+            
+            <div class="row">
+                {% for producto in productos %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100">
+                            {% if producto.imagen %}
+                                <img src="{{ producto.imagen.url }}" class="card-img-top" alt="{{ producto.nombre }}">
+                            {% else %}
+                                <img src="https://via.placeholder.com/300x200?text=Sin+imagen" class="card-img-top" alt="{{ producto.nombre }}">
+                            {% endif %}
+                            <div class="card-body">
+                                <h5 class="card-title">{{ producto.nombre }}</h5>
+                                <p class="card-text">{{ producto.descripcion|truncatewords:15 }}</p>
+                                <p class="card-text text-primary fw-bold">${{ producto.precio }}</p>
+                                <a href="{% url 'catalogo:detalle_producto' producto.id %}" class="btn btn-primary">Ver detalles</a>
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            No se encontraron productos.
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Moto Tienda - Tu tienda de motocicletas{% endblock %}
+
+{% block content %}
+    <!-- Banner principal -->
+    <div class="bg-dark text-white p-5 mb-4 rounded">
+        <div class="container-fluid py-5">
+            <h1 class="display-5 fw-bold">Bienvenido a Moto Tienda</h1>
+            <p class="col-md-8 fs-4">Tu tienda especializada en motocicletas, equipamiento y accesorios.</p>
+            <a href="{% url 'catalogo:lista_productos' %}" class="btn btn-primary btn-lg">Ver Productos</a>
+        </div>
+    </div>
+
+    <!-- Categorías destacadas -->
+    <h2 class="mb-4">Categorías populares</h2>
+    <div class="row">
+        {% for categoria in categorias|slice:":3" %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">{{ categoria.nombre }}</h5>
+                        <p class="card-text">{{ categoria.descripcion|truncatewords:20 }}</p>
+                        <a href="{% url 'catalogo:productos_por_categoria' categoria.id %}" class="btn btn-outline-primary">Ver productos</a>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-12">
+                <p class="text-center">No hay categorías disponibles.</p>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Productos recientes -->
+    <h2 class="mt-5 mb-4">Productos más recientes</h2>
+    <div class="row">
+        {% for producto in productos_recientes %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    {% if producto.imagen %}
+                        <img src="{{ producto.imagen.url }}" class="card-img-top" alt="{{ producto.nombre }}">
+                    {% else %}
+                        <img src="https://via.placeholder.com/300x200?text=Sin+imagen" class="card-img-top" alt="{{ producto.nombre }}">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ producto.nombre }}</h5>
+                        <p class="card-text">{{ producto.descripcion|truncatewords:15 }}</p>
+                        <p class="card-text text-primary fw-bold">${{ producto.precio }}</p>
+                        <a href="{% url 'catalogo:detalle_producto' producto.id %}" class="btn btn-primary">Ver detalles</a>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-12">
+                <p class="text-center">No hay productos disponibles.</p>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}
