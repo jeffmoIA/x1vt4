@@ -27,7 +27,6 @@ from io import BytesIO
 from django.contrib.auth.models import User
 from django.template.loader import render_to_string
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 import json
 
 @login_required

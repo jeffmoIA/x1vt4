@@ -7,7 +7,6 @@ from .forms import ProductoForm
 from .forms import ProductoForm, TallaFormSet
 from django.http import JsonResponse
 from django.core.paginator import Paginator
-from django.views.decorators.csrf import csrf_exempt
 import json
 from django.urls import reverse
 
