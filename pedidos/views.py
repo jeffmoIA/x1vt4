@@ -25,8 +25,10 @@ from django.http import HttpResponse
 from datetime import datetime
 from io import BytesIO
 from django.contrib.auth.models import User
-from django.http import JsonResponse
 from django.template.loader import render_to_string
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 @login_required
 def crear_pedido(request):
@@ -427,3 +429,4 @@ def cambiar_estado_pedido_ajax(request, pedido_id):
         return JsonResponse({'success': False, 'error': 'Estado no válido'}, status=400)
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+

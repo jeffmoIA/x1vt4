@@ -5,6 +5,12 @@ from django.db.models import Q
 from .models import Producto, Categoria, Marca
 from .forms import ProductoForm
 from .forms import ProductoForm, TallaFormSet
+from django.http import JsonResponse
+from django.core.paginator import Paginator
+from django.views.decorators.csrf import csrf_exempt
+import json
+from django.urls import reverse
+
 # Función auxiliar para verificar si el usuario es administrador
 def es_admin(user):
     return user.is_staff
@@ -155,3 +161,106 @@ def productos_por_marca(request, marca_id):
         'productos': productos,
         'marca': marca
     })
+    
+@login_required
+@user_passes_test(es_admin)
+def admin_productos_data(request):
+    """
+    Vista para procesar solicitudes AJAX de DataTables y devolver datos de productos paginados
+    """
+    # Obtener los parámetros enviados por DataTables
+    draw = int(request.POST.get('draw', 1))  # Contador de solicitudes
+    start = int(request.POST.get('start', 0))  # Inicio de la paginación
+    length = int(request.POST.get('length', 10))  # Cantidad de registros a mostrar
+    search_value = request.POST.get('search[value]', '')  # Valor de búsqueda
+    
+    # Obtener columna de ordenamiento y dirección
+    order_column_index = request.POST.get('order[0][column]', 1)  # Índice de la columna a ordenar
+    order_column = request.POST.get(f'columns[{order_column_index}][data]', 'nombre')  # Nombre de la columna
+    order_dir = request.POST.get('order[0][dir]', 'asc')  # Dirección de ordenamiento
+    
+    # Convertir el índice de columna a un nombre de campo real
+    column_mapping = {
+        '0': 'id',
+        '1': 'nombre',
+        '2': 'precio',
+        '3': 'categoria__nombre',
+        '4': 'marca__nombre',
+        '5': 'stock',
+        '6': 'disponible'
+    }
+    order_column = column_mapping.get(order_column_index, 'nombre')
+    
+    # Preparar el ordenamiento
+    if order_dir == 'desc':
+        order_column = f'-{order_column}'  # Agregar un signo menos para ordenar descendentemente
+    
+    # Preparar la consulta base
+    queryset = Producto.objects.all()
+    
+    # Filtrar por término de búsqueda si existe
+    if search_value:
+        queryset = queryset.filter(
+            Q(nombre__icontains=search_value) |
+            Q(descripcion__icontains=search_value) |
+            Q(categoria__nombre__icontains=search_value) |
+            Q(marca__nombre__icontains=search_value)
+        )
+    
+    # Total de registros (sin filtrar)
+    total_records = Producto.objects.count()
+    # Total de registros (después de filtrar)
+    total_records_filtered = queryset.count()
+    
+    # Ordenar y paginar los resultados
+    queryset = queryset.order_by(order_column)[start:start + length]
+    
+    # Preparar los datos para la respuesta
+    data = []
+    for producto in queryset:
+        # URL de la imagen (o placeholder si no hay imagen)
+        imagen_url = producto.imagen.url if producto.imagen else '/static/img/placeholder.png'
+        
+        # Estado de disponibilidad formateado como HTML
+        if producto.disponible:
+            disponible_html = '<span class="badge bg-success">Sí</span>'
+        else:
+            disponible_html = '<span class="badge bg-danger">No</span>'
+        
+        # URL de las acciones
+        editar_url = reverse('catalogo:editar_producto', args=[producto.id])
+        eliminar_url = reverse('catalogo:eliminar_producto', args=[producto.id])
+        
+        # Botones de acción
+        acciones_html = f'''
+        <div class="btn-group" role="group">
+            <a href="{editar_url}" class="btn btn-sm btn-warning">
+                <i class="fas fa-edit"></i>
+            </a>
+            <a href="{eliminar_url}" class="btn btn-sm btn-danger">
+                <i class="fas fa-trash"></i>
+            </a>
+        </div>
+        '''
+        
+        # Agregar el producto a la lista de datos
+        data.append({
+            'imagen': f'<img src="{imagen_url}" alt="{producto.nombre}" width="50">',
+            'nombre': producto.nombre,
+            'precio': f'${producto.precio}',
+            'categoria': producto.categoria.nombre,
+            'marca': producto.marca.nombre,
+            'stock': producto.stock,
+            'disponible': disponible_html,
+            'acciones': acciones_html
+        })
+    
+    # Preparar la respuesta JSON según el formato esperado por DataTables
+    response = {
+        'draw': draw,
+        'recordsTotal': total_records,
+        'recordsFiltered': total_records_filtered,
+        'data': data
+    }
+    
+    return JsonResponse(response)

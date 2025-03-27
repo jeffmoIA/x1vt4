@@ -23,7 +23,7 @@
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table id="productos-table" class="table table-striped table-hover">
                     <thead>
                         <tr>
                             <th>Imagen</th>
@@ -37,47 +37,65 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for producto in productos %}
-                            <tr>
-                                <td>
-                                    {% if producto.imagen %}
-                                        <img src="{{ producto.imagen.url }}" alt="{{ producto.nombre }}" width="50">
-                                    {% else %}
-                                        <span class="text-muted">Sin imagen</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ producto.nombre }}</td>
-                                <td>${{ producto.precio }}</td>
-                                <td>{{ producto.categoria.nombre }}</td>
-                                <td>{{ producto.marca.nombre }}</td>
-                                <td>{{ producto.stock }}</td>
-                                <td>
-                                    {% if producto.disponible %}
-                                        <span class="badge bg-success">Sí</span>
-                                    {% else %}
-                                        <span class="badge bg-danger">No</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="btn-group" role="group">
-                                        <a href="{% url 'catalogo:editar_producto' producto.id %}" class="btn btn-sm btn-warning">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        <a href="{% url 'catalogo:eliminar_producto' producto.id %}" class="btn btn-sm btn-danger">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="8" class="text-center">No hay productos disponibles</td>
-                            </tr>
-                        {% endfor %}
+                        <!-- Los datos se cargarán vía AJAX -->
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
+{% block extra_js %}
+<script>
+    // Función para obtener el token CSRF de las cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    $(document).ready(function() {
+        $('#productos-table').DataTable({
+            // Configuración para procesamiento en servidor
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: "{% url 'catalogo:admin_productos_data' %}",
+                type: "POST",
+                // Incluir el token CSRF en la solicitud
+                headers: {
+                    "X-CSRFToken": getCookie('csrftoken')
+                }
+            },
+            // Definición de columnas
+            columns: [
+                { data: 'imagen', orderable: false },
+                { data: 'nombre' },
+                { data: 'precio' },
+                { data: 'categoria' },
+                { data: 'marca' },
+                { data: 'stock' },
+                { data: 'disponible', orderable: false },
+                { data: 'acciones', orderable: false }
+            ],
+            // Opciones de idioma
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json'
+            },
+            // Longitud de página
+            pageLength: 10,
+            // Opciones de longitud
+            lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, 'Todos']]
+        });
+    });
+</script>
+{% endblock %}
 {% endblock %}
