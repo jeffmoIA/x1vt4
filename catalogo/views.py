@@ -97,7 +97,8 @@ def eliminar_producto(request, producto_id):
 
 def lista_productos(request):
     # Obtener todos los productos disponibles
-    productos = Producto.objects.filter(disponible=True)
+    # Usamos select_related para precargar categoría y marca en una sola consulta
+    productos = Producto.objects.filter(disponible=True).select_related('categoria', 'marca')
     
     # Obtener todas las categorías y marcas para los filtros laterales
     categorias = Categoria.objects.all()
@@ -120,20 +121,22 @@ def lista_productos(request):
 
 def detalle_producto(request, producto_id):
     # Obtener un producto específico por su ID
-    producto = get_object_or_404(Producto, id=producto_id, disponible=True)
-    
-    # Ya no necesitamos filtrar por disponibilidad aquí
-    # tallas_disponibles = producto.tallas.filter(disponible=True)
+    # Usamos select_related para cargar categoría y marca en una sola consulta
+    producto = get_object_or_404(
+        Producto.objects.select_related('categoria', 'marca'),
+        id=producto_id, 
+        disponible=True
+    )
     
     # Obtener productos relacionados (misma categoría, excluyendo el actual)
+    # También usamos select_related para los productos relacionados
     productos_relacionados = Producto.objects.filter(
         categoria=producto.categoria,
         disponible=True
-    ).exclude(id=producto_id)[:4]  # Limitamos a 4 productos relacionados
+    ).exclude(id=producto_id).select_related('categoria', 'marca')[:4]
     
     return render(request, 'catalogo/detalle_producto.html', {
         'producto': producto,
-        # Ya no pasamos tallas_disponibles ya que usaremos producto.tallas.all() en la plantilla
         'productos_relacionados': productos_relacionados
     })
 
