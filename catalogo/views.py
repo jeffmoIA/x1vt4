@@ -4,14 +4,7 @@ from django.contrib import messages
 from django.db.models import Q
 from .models import Producto, Categoria, Marca
 from .forms import ProductoForm
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib import messages
-from django.db.models import Q
-from .models import Producto, Categoria, Marca
-from .forms import ProductoForm
-
+from .forms import ProductoForm, TallaFormSet
 # Función auxiliar para verificar si el usuario es administrador
 def es_admin(user):
     return user.is_staff
@@ -33,17 +26,28 @@ def admin_lista_productos(request):
 def crear_producto(request):
     if request.method == 'POST':
         form = ProductoForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
+        formset = TallaFormSet(request.POST, prefix='tallas')
+        
+        if form.is_valid() and formset.is_valid():
+            # Guardar el producto
+            producto = form.save()
+            
+            # Guardar las tallas relacionadas
+            formset.instance = producto
+            formset.save()
+            
             messages.success(request, 'Producto creado exitosamente')
             return redirect('catalogo:admin_lista_productos')
     else:
         form = ProductoForm()
+        formset = TallaFormSet(prefix='tallas')
     
     return render(request, 'catalogo/admin/editar_producto.html', {
         'form': form,
+        'formset': formset,
         'accion': 'Crear'
     })
+
 
 # Editar producto existente
 @login_required
@@ -53,15 +57,20 @@ def editar_producto(request, producto_id):
     
     if request.method == 'POST':
         form = ProductoForm(request.POST, request.FILES, instance=producto)
-        if form.is_valid():
+        formset = TallaFormSet(request.POST, instance=producto, prefix='tallas')
+        
+        if form.is_valid() and formset.is_valid():
             form.save()
+            formset.save()
             messages.success(request, 'Producto actualizado exitosamente')
             return redirect('catalogo:admin_lista_productos')
     else:
         form = ProductoForm(instance=producto)
+        formset = TallaFormSet(instance=producto, prefix='tallas')
     
     return render(request, 'catalogo/admin/editar_producto.html', {
         'form': form,
+        'formset': formset,
         'producto': producto,
         'accion': 'Editar'
     })
@@ -108,6 +117,9 @@ def detalle_producto(request, producto_id):
     # Obtener un producto específico por su ID
     producto = get_object_or_404(Producto, id=producto_id, disponible=True)
     
+    # Ya no necesitamos filtrar por disponibilidad aquí
+    # tallas_disponibles = producto.tallas.filter(disponible=True)
+    
     # Obtener productos relacionados (misma categoría, excluyendo el actual)
     productos_relacionados = Producto.objects.filter(
         categoria=producto.categoria,
@@ -116,6 +128,7 @@ def detalle_producto(request, producto_id):
     
     return render(request, 'catalogo/detalle_producto.html', {
         'producto': producto,
+        # Ya no pasamos tallas_disponibles ya que usaremos producto.tallas.all() en la plantilla
         'productos_relacionados': productos_relacionados
     })
 

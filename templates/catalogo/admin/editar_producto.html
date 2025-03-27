@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container mt-4">
     <div class="row">
-        <div class="col-md-8 mx-auto">
+        <div class="col-md-10 mx-auto">
             <div class="card">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">{{ accion }} Producto</h4>
@@ -14,6 +14,7 @@
                     <form method="post" enctype="multipart/form-data" novalidate>
                         {% csrf_token %}
                         
+                        <!-- Información básica del producto -->
                         <div class="mb-3">
                             <label for="{{ form.nombre.id_for_label }}" class="form-label">Nombre del producto</label>
                             {{ form.nombre }}
@@ -40,7 +41,7 @@
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label for="{{ form.stock.id_for_label }}" class="form-label">Stock</label>
+                                <label for="{{ form.stock.id_for_label }}" class="form-label">Stock total</label>
                                 {{ form.stock }}
                                 {% if form.stock.errors %}
                                     <div class="invalid-feedback d-block">{{ form.stock.errors.0 }}</div>
@@ -58,9 +59,9 @@
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label for="{{ form.marca.id_for_label }}" class="form-label">Marca</label>
+                                <label for="{{ form.logo.id_for_label }}" class="form-label">Marca</label>
                                 {{ form.marca }}
-                                {% if form.marca.errors %}
+                                {% if form.logo.errors %}
                                     <div class="invalid-feedback d-block">{{ form.marca.errors.0 }}</div>
                                 {% endif %}
                             </div>
@@ -89,6 +90,46 @@
                             {% endif %}
                         </div>
                         
+                        <!-- Gestión de tallas -->
+                        <h5 class="mt-4 mb-3">Tallas disponibles</h5>
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                {{ formset.management_form }}
+                                
+                                <table class="table table-borderless">
+                                    <thead>
+                                        <tr>
+                                            <th>Talla</th>
+                                            <th>Disponible</th>
+                                            <th>Stock</th>
+                                            <th>Eliminar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tallas-container">
+                                        {% for talla_form in formset %}
+                                            <tr class="talla-form">
+                                                <td>
+                                                    {{ talla_form.id }}
+                                                    {{ talla_form.talla }}
+                                                </td>
+                                                <td>{{ talla_form.disponible }}</td>
+                                                <td>{{ talla_form.stock }}</td>
+                                                <td>
+                                                    {% if formset.can_delete %}
+                                                        {{ talla_form.DELETE }}
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                                
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="add-talla">
+                                    <i class="fas fa-plus"></i> Añadir otra talla
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div class="d-flex justify-content-between">
                             <a href="{% url 'catalogo:admin_lista_productos' %}" class="btn btn-secondary">Cancelar</a>
                             <button type="submit" class="btn btn-primary">Guardar producto</button>
@@ -99,4 +140,59 @@
         </div>
     </div>
 </div>
+
+<!-- JavaScript para añadir dinámicamente más tallas -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addButton = document.getElementById('add-talla');
+    const totalForms = document.getElementById('id_tallas-TOTAL_FORMS');
+    const container = document.getElementById('tallas-container');
+
+    // Función para añadir una nueva talla
+    addButton.addEventListener('click', function() {
+        const formCount = parseInt(totalForms.value);
+        
+        // Clonar el primer formulario de talla (como plantilla)
+        const forms = document.getElementsByClassName('talla-form');
+        const firstForm = forms[0];
+        const newForm = firstForm.cloneNode(true);
+        
+        // Actualizar IDs y nombres en el nuevo formulario
+        updateElementAttributes(newForm, 'id', formCount);
+        updateElementAttributes(newForm, 'name', formCount);
+        
+        // Limpiar los valores
+        const inputs = newForm.querySelectorAll('input[type="text"], input[type="number"]');
+        inputs.forEach(input => {
+            input.value = '';
+        });
+        
+        // Desmarcar checkboxes
+        const checkboxes = newForm.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        
+        // Añadir el nuevo formulario al contenedor
+        container.appendChild(newForm);
+        
+        // Incrementar el contador de formularios
+        totalForms.value = formCount + 1;
+    });
+    
+    // Función para actualizar atributos
+    function updateElementAttributes(element, attributeName, formCount) {
+        const elements = element.querySelectorAll(`[${attributeName}*="-"]`);
+        elements.forEach(el => {
+            const attribute = el.getAttribute(attributeName);
+            if (attribute) {
+                el.setAttribute(
+                    attributeName, 
+                    attribute.replace(/tallas-\d+/, `tallas-${formCount}`)
+                );
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

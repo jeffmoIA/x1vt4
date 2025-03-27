@@ -3,29 +3,51 @@
 {% block title %}{{ producto.nombre }}{% endblock %}
 
 {% block content %}
+<div class="container mt-4">
+    <!-- Breadcrumb de navegación -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'tienda:inicio' %}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'catalogo:lista_productos' %}">Productos</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ producto.nombre }}</li>
+        </ol>
+    </nav>
+
     <div class="row">
-        <!-- Imagen del producto -->
-        <div class="col-md-6">
-            <div class="card">
+        <!-- Miniaturas de imágenes a la izquierda -->
+        <div class="col-md-1 d-none d-md-block">
+            <div class="d-flex flex-column">
                 {% if producto.imagen %}
-                    <img src="{{ producto.imagen.url }}" class="card-img-top img-fluid" alt="{{ producto.nombre }}">
+                    <div class="mb-2 border p-1">
+                        <img src="{{ producto.imagen.url }}" class="img-fluid thumbnail-img" onclick="changeMainImage(this.src)" alt="{{ producto.nombre }}">
+                    </div>
+                    <!-- Aquí irían más miniaturas cuando implementes múltiples imágenes -->
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Imagen principal en el centro -->
+        <div class="col-md-5">
+            <div class="card border-0">
+                {% if producto.imagen %}
+                    <img id="main-image" src="{{ producto.imagen.url }}" class="card-img-top img-fluid" alt="{{ producto.nombre }}">
                 {% else %}
                     <img src="https://via.placeholder.com/600x400?text=Sin+imagen" class="card-img-top img-fluid" alt="{{ producto.nombre }}">
                 {% endif %}
             </div>
         </div>
         
-        <!-- Información del producto -->
+        <!-- Información del producto a la derecha -->
         <div class="col-md-6">
-            <h1 class="mb-3">{{ producto.nombre }}</h1>
+            <h1 class="mb-2">{{ producto.nombre }}</h1>
+            <h3 class="text-primary mb-4">${{ producto.precio }}</h3>
             
-            <div class="mb-3">
-                <span class="badge bg-primary">{{ producto.categoria.nombre }}</span>
-                <span class="badge bg-secondary">{{ producto.marca.nombre }}</span>
-            </div>
+            <!-- Marca del producto -->
+            <p class="mb-3">
+                <strong>Marca:</strong> {{ producto.marca.nombre }}
+            </p>
             
-            <h2 class="text-primary mb-4">${{ producto.precio }}</h2>
-            
+            <!-- Estado de disponibilidad -->
             <div class="mb-4">
                 {% if producto.stock > 0 %}
                     <span class="badge bg-success">En stock ({{ producto.stock }} disponibles)</span>
@@ -34,21 +56,138 @@
                 {% endif %}
             </div>
             
-            <div class="mb-4">
-                <h5>Descripción:</h5>
-                <p>{{ producto.descripcion }}</p>
-            </div>
+            <!-- Formulario para seleccionar opciones -->
+            <form method="post" action="{% url 'carrito:agregar_al_carrito' producto.id %}" class="mb-4">
+                {% csrf_token %}
+                
+                <!-- Selección de color -->
+                <div class="mb-3">
+                    <label for="color" class="form-label"><strong>Color</strong></label>
+                    <div class="d-flex flex-wrap gap-2">
+                        <!-- Opciones de color - podrías hacerlas dinámicas en el futuro -->
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="color" id="color1" value="Negro" checked>
+                            <label class="form-check-label" for="color1">Negro</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="color" id="color2" value="Azul">
+                            <label class="form-check-label" for="color2">Azul</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="color" id="color3" value="Rojo">
+                            <label class="form-check-label" for="color3">Rojo</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Selección de talla -->
+                <div class="mb-3">
+                    <label for="talla" class="form-label"><strong>Talla</strong></label>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for talla_obj in producto.tallas.all %}
+                            {% if talla_obj.disponible %}
+                                <!-- Talla disponible - se puede seleccionar -->
+                                <input type="radio" class="btn-check" name="talla" id="talla-{{ talla_obj.talla|slugify }}" 
+                                       value="{{ talla_obj.talla }}" {% if forloop.first %}checked{% endif %}>
+                                <label class="btn btn-outline-secondary" for="talla-{{ talla_obj.talla|slugify }}">
+                                    {{ talla_obj.talla }}
+                                </label>
+                            {% else %}
+                                <!-- Talla no disponible - tachada y deshabilitada -->
+                                <input type="radio" class="btn-check" name="talla" id="talla-{{ talla_obj.talla|slugify }}" 
+                                       value="{{ talla_obj.talla }}" disabled>
+                                <label class="btn btn-outline-secondary text-decoration-line-through opacity-50" 
+                                       for="talla-{{ talla_obj.talla|slugify }}" 
+                                       title="No disponible">
+                                    {{ talla_obj.talla }}
+                                </label>
+                            {% endif %}
+                        {% empty %}
+                            <div class="alert alert-warning">No hay tallas disponibles</div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-2">
+                        <a href="#" class="text-decoration-none small">Guía de tallas</a>
+                    </div>
+                </div>
+                
+                <!-- Selección de cantidad -->
+                <div class="mb-4">
+                    <label for="cantidad" class="form-label"><strong>Cantidad</strong></label>
+                    <div class="input-group" style="max-width: 150px;">
+                        <button type="button" class="btn btn-outline-secondary" onclick="decrementQuantity()">-</button>
+                        <input type="number" class="form-control text-center" id="cantidad" name="cantidad" value="1" min="1" max="{{ producto.stock }}">
+                        <button type="button" class="btn btn-outline-secondary" onclick="incrementQuantity()">+</button>
+                    </div>
+                </div>
+                
+                <!-- Botones de compra -->
+                {% if producto.stock > 0 %}
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg rounded-0">
+                            <i class="fas fa-cart-plus"></i> Añadir al carrito
+                        </button>
+                        
+                        <button type="submit" name="comprar_ahora" value="1" class="btn btn-outline-primary btn-lg rounded-0">
+                            <i class="fas fa-bolt"></i> Comprar ahora
+                        </button>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        Este producto está actualmente agotado. Regrese más tarde.
+                    </div>
+                {% endif %}
+            </form>
             
-            {% if producto.stock > 0 %}
-                <div class="d-grid gap-2">
-                    <button class="btn btn-primary btn-lg">Añadir al carrito</button>
-                    <button class="btn btn-outline-primary">Comprar ahora</button>
+            <!-- Paneles desplegables -->
+            <div class="accordion mt-4" id="accordionProducto">
+                <!-- Descripción -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingDescription">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDescription" aria-expanded="true" aria-controls="collapseDescription">
+                            Descripción
+                        </button>
+                    </h2>
+                    <div id="collapseDescription" class="accordion-collapse collapse show" aria-labelledby="headingDescription" data-bs-parent="#accordionProducto">
+                        <div class="accordion-body">
+                            {{ producto.descripcion|linebreaks }}
+                        </div>
+                    </div>
                 </div>
-            {% else %}
-                <div class="alert alert-warning">
-                    Este producto está actualmente agotado. Regrese más tarde.
+                
+                <!-- Características -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingFeatures">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFeatures" aria-expanded="false" aria-controls="collapseFeatures">
+                            Características principales
+                        </button>
+                    </h2>
+                    <div id="collapseFeatures" class="accordion-collapse collapse" aria-labelledby="headingFeatures" data-bs-parent="#accordionProducto">
+                        <div class="accordion-body">
+                            <ul>
+                                <li>Categoría: {{ producto.categoria.nombre }}</li>
+                                <li>Marca: {{ producto.logo.nombre }}</li>
+                                <!-- Más características cuando las implementes -->
+                            </ul>
+                        </div>
+                    </div>
                 </div>
-            {% endif %}
+                
+                <!-- Envío y devoluciones -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingShipping">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseShipping" aria-expanded="false" aria-controls="collapseShipping">
+                            Envío y devoluciones
+                        </button>
+                    </h2>
+                    <div id="collapseShipping" class="accordion-collapse collapse" aria-labelledby="headingShipping" data-bs-parent="#accordionProducto">
+                        <div class="accordion-body">
+                            <p>Envío gratis en pedidos superiores a $100.</p>
+                            <p>Política de devoluciones: 30 días para devolver el producto en su estado original.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -78,16 +217,58 @@
             {% endfor %}
         </div>
     </div>
-    {% if producto.stock > 0 %}
-    <div class="d-grid gap-2">
-        <a href="{% url 'carrito:agregar_al_carrito' producto.id %}" class="btn btn-primary btn-lg">
-            <i class="fas fa-cart-plus"></i> Añadir al carrito
-        </a>
-        <a href="{% url 'carrito:ver_carrito' %}" class="btn btn-outline-primary">Ver carrito</a>
-    </div>
-{% else %}
-    <div class="alert alert-warning">
-        Este producto está actualmente agotado. Regrese más tarde.
-    </div>
-{% endif %}
+</div>
+
+<!-- JavaScript para cambiar la imagen principal y manejar la cantidad -->
+<script>
+function changeMainImage(src) {
+    document.getElementById('main-image').src = src;
+}
+
+function incrementQuantity() {
+    var input = document.getElementById('cantidad');
+    var max = parseInt(input.max) || 100;
+    var value = parseInt(input.value) || 0;
+    if (value < max) {
+        input.value = value + 1;
+    }
+}
+
+function decrementQuantity() {
+    var input = document.getElementById('cantidad');
+    var value = parseInt(input.value) || 0;
+    if (value > 1) {
+        input.value = value - 1;
+    }
+}
+</script>
+
+<!-- Estilos adicionales -->
+<style>
+<style>
+.thumbnail-img {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.thumbnail-img:hover {
+    opacity: 0.8;
+}
+
+/* CSS para tallas no disponibles */
+.text-decoration-line-through {
+    text-decoration: line-through !important;
+    position: relative;
+}
+
+/* Opcionalmente, añadir una línea más gruesa o visible */
+.text-decoration-line-through::after {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background-color: #999;
+    left: 0;
+    top: 50%;
+}
+</style>
 {% endblock %}

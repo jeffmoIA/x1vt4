@@ -62,3 +62,19 @@ class Producto(models.Model):
     def __str__(self):
         # Representación textual del producto
         return self.nombre
+    
+    # En catalogo/models.py, añade este nuevo modelo
+class TallaProducto(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='tallas')
+    talla = models.CharField(max_length=20)  # Puede ser "S", "M", "42", "54", etc.
+    disponible = models.BooleanField(default=True)  # Indica si esta talla está disponible
+    stock = models.PositiveIntegerField(default=0)  # Stock para esta talla específica
+
+    class Meta:
+        # Asegura que no pueda haber duplicados de talla para un mismo producto
+        unique_together = ('producto', 'talla')
+        verbose_name = "Talla de producto"
+        verbose_name_plural = "Tallas de productos"
+
+    def __str__(self):
+        return f"{self.producto.nombre} - Talla {self.talla}"

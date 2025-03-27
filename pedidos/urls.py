@@ -8,4 +8,5 @@ urlpatterns = [
     path('mis-pedidos/', views.lista_pedidos, name='lista_pedidos'),
     path('pedido/<int:pedido_id>/', views.detalle_pedido, name='detalle_pedido'),
     path('pedido/<int:pedido_id>/cancelar/', views.cancelar_pedido, name='cancelar_pedido'),
+    path('pedido/<int:pedido_id>/factura/', views.obtener_factura, name='factura_pedido'),
 ]

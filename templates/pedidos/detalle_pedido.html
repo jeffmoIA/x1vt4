@@ -92,6 +92,11 @@
                 </div>
             {% endif %}
         </div>
+        <div class="mt-4">
+            <a href="{% url 'pedidos:factura_pedido' pedido.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-file-pdf"></i> Descargar factura
+            </a>
+        </div>
         
         <!-- Estado del pedido -->
         <div class="col-md-4">

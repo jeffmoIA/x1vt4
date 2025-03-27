@@ -95,3 +95,16 @@ def cancelar_pedido(request, pedido_id):
     else:
         messages.error(request, 'Este pedido no puede ser cancelado')
         return redirect('pedidos:detalle_pedido', pedido_id=pedido.id)
+    
+def obtener_factura(request, pedido_id):
+    """Vista para descargar la factura de un pedido"""
+    # Verificar que el usuario esté autenticado
+    if not request.user.is_authenticated:
+        return redirect('usuarios:login')
+    
+    # Verificar que el pedido pertenece al usuario
+    pedido = get_object_or_404(Pedido, id=pedido_id, usuario=request.user)
+    
+    # Importar la función desde utils
+    from .utils import obtener_factura
+    return obtener_factura(request, pedido_id)

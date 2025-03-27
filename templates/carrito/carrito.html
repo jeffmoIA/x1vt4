@@ -3,7 +3,7 @@
 {% block title %}Mi carrito - Moto Tienda{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <h1 class="mb-4">Mi carrito de compras</h1>
     
     {% if carrito.items.all %}
@@ -25,7 +25,7 @@
                         </thead>
                         <tbody>
                             {% for item in carrito.items.all %}
-                                <tr>
+                                <tr id="item-{{ item.id }}">
                                     <td>
                                         <div class="d-flex align-items-center">
                                             {% if item.producto.imagen %}
@@ -39,24 +39,30 @@
                                             <div>
                                                 <h6 class="mb-0">{{ item.producto.nombre }}</h6>
                                                 <small class="text-muted">{{ item.producto.categoria.nombre }}</small>
+                                                {% if item.talla or item.color %}
+                                                    <small class="d-block">
+                                                        {% if item.color %}Color: {{ item.color }}{% endif %}
+                                                        {% if item.talla %}{% if item.color %} | {% endif %}Talla: {{ item.talla }}{% endif %}
+                                                    </small>
+                                                {% endif %}
                                             </div>
                                         </div>
                                     </td>
                                     <td>${{ item.producto.precio }}</td>
                                     <td>
-                                        <!-- Formulario para actualizar cantidad -->
-                                        <form method="post" action="{% url 'carrito:actualizar_carrito' item.id %}" class="d-flex align-items-center">
-                                            {% csrf_token %}
-                                            <input type="number" name="cantidad" value="{{ item.cantidad }}" 
-                                                   min="1" max="10" class="form-control form-control-sm" style="width: 60px;">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary ms-2">
-                                                <i class="fas fa-sync-alt"></i>
-                                            </button>
-                                        </form>
+                                        <div class="quantity-control d-flex align-items-center" style="width: 110px;">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary quantity-btn" 
+                                                    data-item-id="{{ item.id }}" data-action="decrease">-</button>
+                                            <input type="text" class="form-control mx-2 text-center quantity-input" 
+                                                   value="{{ item.cantidad }}" 
+                                                   data-item-id="{{ item.id }}" 
+                                                   aria-label="Cantidad" style="width: 40px;">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary quantity-btn" 
+                                                    data-item-id="{{ item.id }}" data-action="increase">+</button>
+                                        </div>
                                     </td>
-                                    <td>${{ item.subtotal }}</td>
+                                    <td class="item-subtotal">${{ item.subtotal }}</td>
                                     <td>
-                                        <!-- Botón para eliminar item -->
                                         <a href="{% url 'carrito:eliminar_del_carrito' item.id %}" class="btn btn-sm btn-danger">
                                             <i class="fas fa-trash"></i> Eliminar
                                         </a>
@@ -67,30 +73,19 @@
                         <tfoot>
                             <tr class="table-active">
                                 <th colspan="3" class="text-end">Total:</th>
-                                <th>${{ carrito.total }}</th>
+                                <th id="cart-total">${{ carrito.total }}</th>
                                 <th></th>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             </div>
-            <!-- Al final de la tarjeta del carrito -->
             <div class="card-footer">
                 <div class="d-flex justify-content-between">
                     <a href="{% url 'catalogo:lista_productos' %}" class="btn btn-outline-primary">
                         <i class="fas fa-arrow-left"></i> Seguir comprando
                     </a>
                     <a href="{% url 'pedidos:crear_pedido' %}" class="btn btn-success">
-                        <i class="fas fa-shopping-cart"></i> Proceder al pago
-                    </a>
-                </div>
-            </div>
-            <div class="card-footer">
-                <div class="d-flex justify-content-between">
-                    <a href="{% url 'catalogo:lista_productos' %}" class="btn btn-outline-primary">
-                        <i class="fas fa-arrow-left"></i> Seguir comprando
-                    </a>
-                    <a href="#" class="btn btn-success">
                         <i class="fas fa-shopping-cart"></i> Proceder al pago
                     </a>
                 </div>
@@ -103,4 +98,110 @@
         </div>
     {% endif %}
 </div>
+
+<!-- JavaScript para manejar las actualizaciones de cantidad -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Seleccionar todos los botones de cantidad
+    const quantityBtns = document.querySelectorAll('.quantity-btn');
+    const quantityInputs = document.querySelectorAll('.quantity-input');
+    
+    // Añadir evento a los botones + y -
+    quantityBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const itemId = this.getAttribute('data-item-id');
+            const action = this.getAttribute('data-action');
+            const inputEl = document.querySelector(`.quantity-input[data-item-id="${itemId}"]`);
+            let currentVal = parseInt(inputEl.value);
+            
+            if (action === 'increase') {
+                currentVal += 1;
+            } else if (action === 'decrease' && currentVal > 1) {
+                currentVal -= 1;
+            }
+            
+            inputEl.value = currentVal;
+            updateCartItem(itemId, currentVal);
+        });
+    });
+    
+    // Añadir evento para actualizar cuando se cambia el input manualmente
+    quantityInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            const itemId = this.getAttribute('data-item-id');
+            let value = parseInt(this.value);
+            
+            // Validar que sea un número positivo
+            if (isNaN(value) || value < 1) {
+                value = 1;
+                this.value = 1;
+            }
+            
+            updateCartItem(itemId, value);
+        });
+    });
+    
+    // Función para actualizar un ítem del carrito
+    function updateCartItem(itemId, quantity) {
+        // Crear un formulario para enviar los datos
+        const formData = new FormData();
+        formData.append('cantidad', quantity);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        // Mostrar indicador de carga
+        const row = document.getElementById(`item-${itemId}`);
+        if (row) row.style.opacity = '0.6';
+        
+        // Enviar solicitud de actualización
+        fetch(`{% url 'carrito:actualizar_carrito' 999 %}`.replace('999', itemId), {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Actualizar subtotal del ítem
+                const subtotalEl = row.querySelector('.item-subtotal');
+                if (subtotalEl) subtotalEl.textContent = `$${data.subtotal.toFixed(2)}`;
+                
+                // Actualizar total del carrito
+                const totalEl = document.getElementById('cart-total');
+                if (totalEl) totalEl.textContent = `$${data.total.toFixed(2)}`;
+                
+                // Si el ítem fue eliminado, remover la fila
+                if (data.deleted) {
+                    row.remove();
+                    // Si ya no hay ítems, recargar la página para mostrar el carrito vacío
+                    if (data.items_count === 0) {
+                        window.location.reload();
+                    }
+                }
+            } else {
+                alert(data.error || 'Ocurrió un error al actualizar el carrito');
+                // Restaurar la cantidad anterior
+                const inputEl = document.querySelector(`.quantity-input[data-item-id="${itemId}"]`);
+                if (inputEl && data.current_quantity) {
+                    inputEl.value = data.current_quantity;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ocurrió un error al actualizar el carrito');
+        })
+        .finally(() => {
+            // Restaurar la opacidad
+            if (row) row.style.opacity = '1';
+        });
+    }
+});
+</script>
 {% endblock %}

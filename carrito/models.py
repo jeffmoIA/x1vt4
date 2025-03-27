@@ -18,16 +18,15 @@ class Carrito(models.Model):
         return sum(item.subtotal() for item in self.items.all())
 
 class ItemCarrito(models.Model):
-    # Modelo para representar cada producto en el carrito
-    # Relación con el carrito, related_name permite acceder a items desde carrito.items.all()
     carrito = models.ForeignKey(Carrito, related_name='items', on_delete=models.CASCADE)
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)  # Producto añadido
-    cantidad = models.PositiveIntegerField(default=1)  # Cantidad del producto (siempre positiva)
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    cantidad = models.PositiveIntegerField(default=1)
+    # Campos para opciones del producto
+    talla = models.CharField(max_length=20, blank=True, null=True)
+    color = models.CharField(max_length=50, blank=True, null=True)
     
     def __str__(self):
-        # Representación en texto del item
         return f"{self.cantidad} x {self.producto.nombre}"
     
     def subtotal(self):
-        # Método para calcular el subtotal (precio * cantidad)
         return self.producto.precio * self.cantidad
