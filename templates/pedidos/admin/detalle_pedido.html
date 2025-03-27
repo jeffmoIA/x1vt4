@@ -1,0 +1,233 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Pedido #{{ pedido.id }} - Administración - Moto Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Pedido #{{ pedido.id }}</h1>
+        <div>
+            <a href="{% url 'pedidos:admin_lista_pedidos' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left"></i> Volver a la lista
+            </a>
+            <a href="{% url 'pedidos:factura_pedido' pedido.id %}" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-file-pdf"></i> Descargar factura
+            </a>
+        </div>
+    </div>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="row">
+        <!-- Información principal del pedido -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Detalles del pedido</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>Fecha:</strong> {{ pedido.fecha_pedido|date:"d/m/Y H:i" }}</p>
+                            <p><strong>Estado actual:</strong> 
+                                {% if pedido.estado == 'pendiente' %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% elif pedido.estado == 'procesando' %}
+                                    <span class="badge bg-info text-dark">Procesando</span>
+                                {% elif pedido.estado == 'enviado' %}
+                                    <span class="badge bg-primary">Enviado</span>
+                                {% elif pedido.estado == 'entregado' %}
+                                    <span class="badge bg-success">Entregado</span>
+                                {% elif pedido.estado == 'cancelado' %}
+                                    <span class="badge bg-danger">Cancelado</span>
+                                {% endif %}
+                            </p>
+                            <p><strong>Total:</strong> ${{ pedido.total }}</p>
+                            <p><strong>Método de pago:</strong> {{ pedido.metodo_pago|default:"No especificado" }}</p>
+                            <p><strong>Referencia de pago:</strong> {{ pedido.referencia_pago|default:"No especificada" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Cliente:</strong> {{ pedido.usuario.username }} ({{ pedido.usuario.email }})</p>
+                            <p><strong>Nombre:</strong> {{ pedido.nombre_completo }}</p>
+                            <p><strong>Teléfono:</strong> {{ pedido.telefono }}</p>
+                            <p><strong>Dirección:</strong> {{ pedido.direccion }}, {{ pedido.ciudad }}, {{ pedido.codigo_postal }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if pedido.notas %}
+                        <div class="alert alert-info">
+                            <strong>Notas del cliente:</strong><br>
+                            {{ pedido.notas }}
+                        </div>
+                    {% endif %}
+                    
+                    {% if pedido.notas_admin %}
+                        <div class="alert alert-secondary">
+                            <strong>Notas administrativas:</strong><br>
+                            {{ pedido.notas_admin }}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Formulario para cambiar el estado del pedido -->
+                    <div class="card mt-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Cambiar estado del pedido</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="{% url 'pedidos:cambiar_estado_pedido' pedido.id %}" class="row g-3">
+                                {% csrf_token %}
+                                <div class="col-md-4">
+                                    <select name="nuevo_estado" class="form-select">
+                                        <option value="pendiente" {% if pedido.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                                        <option value="procesando" {% if pedido.estado == 'procesando' %}selected{% endif %}>Procesando</option>
+                                        <option value="enviado" {% if pedido.estado == 'enviado' %}selected{% endif %}>Enviado</option>
+                                        <option value="entregado" {% if pedido.estado == 'entregado' %}selected{% endif %}>Entregado</option>
+                                        <option value="cancelado" {% if pedido.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="input-group">
+                                        <input type="text" name="notas" class="form-control" placeholder="Notas sobre el cambio de estado (opcional)">
+                                        <button type="submit" class="btn btn-primary">Actualizar estado</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Artículos del pedido -->
+                    <h5 class="mt-4 mb-3">Artículos</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Precio unitario</th>
+                                    <th>Cantidad</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in pedido.items.all %}
+                                    <tr>
+                                        <td>{{ item.producto.nombre }}</td>
+                                        <td>${{ item.precio }}</td>
+                                        <td>{{ item.cantidad }}</td>
+                                        <td class="text-end">${{ item.precio_total }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-active">
+                                    <th colspan="3">Total</th>
+                                    <th class="text-end">${{ pedido.total }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Información de seguimiento y historial -->
+        <div class="col-md-4">
+            <!-- Información de seguimiento -->
+            {% if pedido.estado == 'enviado' or pedido.estado == 'entregado' %}
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Información de envío</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Empresa de envío:</strong> {{ pedido.empresa_envio|default:"No especificada" }}</p>
+                    <p><strong>Código de seguimiento:</strong> {{ pedido.codigo_seguimiento|default:"No especificado" }}</p>
+                    {% if pedido.fecha_envio %}
+                        <p><strong>Fecha de envío:</strong> {{ pedido.fecha_envio|date:"d/m/Y H:i" }}</p>
+                    {% endif %}
+                    {% if pedido.fecha_entrega %}
+                        <p><strong>Fecha de entrega:</strong> {{ pedido.fecha_entrega|date:"d/m/Y H:i" }}</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a href="#" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#actualizarSeguimientoModal">
+                        <i class="fas fa-edit"></i> Actualizar información de seguimiento
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Historial de estados -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Historial de estados</h5>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for cambio in historial %}
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <span class="badge 
+                                            {% if cambio.estado_nuevo == 'pendiente' %}bg-warning text-dark
+                                            {% elif cambio.estado_nuevo == 'procesando' %}bg-info text-dark
+                                            {% elif cambio.estado_nuevo == 'enviado' %}bg-primary
+                                            {% elif cambio.estado_nuevo == 'entregado' %}bg-success
+                                            {% elif cambio.estado_nuevo == 'cancelado' %}bg-danger
+                                            {% endif %}">
+                                            {{ cambio.get_estado_nuevo_display }}
+                                        </span>
+                                    </div>
+                                    <small class="text-muted">{{ cambio.fecha_cambio|date:"d/m/Y H:i" }}</small>
+                                </div>
+                                {% if cambio.usuario %}
+                                    <small class="text-muted">Por: {{ cambio.usuario.username }}</small><br>
+                                {% endif %}
+                                {% if cambio.notas %}
+                                    <small>{{ cambio.notas }}</small>
+                                {% endif %}
+                            </li>
+                        {% empty %}
+                            <li class="list-group-item">No hay registros de cambios de estado</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para actualizar información de seguimiento -->
+<div class="modal fade" id="actualizarSeguimientoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Actualizar información de seguimiento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'pedidos:actualizar_seguimiento' pedido.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="empresa_envio" class="form-label">Empresa de envío</label>
+                        <input type="text" class="form-control" id="empresa_envio" name="empresa_envio" value="{{ pedido.empresa_envio|default:'' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="codigo_seguimiento" class="form-label">Código de seguimiento</label>
+                        <input type="text" class="form-control" id="codigo_seguimiento" name="codigo_seguimiento" value="{{ pedido.codigo_seguimiento|default:'' }}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

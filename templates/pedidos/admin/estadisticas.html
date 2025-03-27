@@ -1,0 +1,201 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Estadísticas de Pedidos - Moto Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Estadísticas de Pedidos</h1>
+    
+    <div class="row">
+        <!-- Tarjetas de resumen -->
+        <div class="col-md-12 mb-4">
+            <div class="row">
+                <!-- Total Pedidos -->
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-primary text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Total de Pedidos</h5>
+                            <h2 class="display-4">{{ total_pedidos }}</h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pendientes -->
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-warning text-dark h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Pendientes</h5>
+                            <h2 class="display-4">{{ pedidos_pendientes }}</h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Completados -->
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Entregados</h5>
+                            <h2 class="display-4">{{ pedidos_entregados }}</h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Cancelados -->
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-danger text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Cancelados</h5>
+                            <h2 class="display-4">{{ pedidos_cancelados }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gráfico de pedidos por mes -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Pedidos por mes</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="pedidosPorMesChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gráfico de estado de pedidos -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Distribución por estado</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="estadosPedidosChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabla de pedidos recientes -->
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Pedidos recientes</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Fecha</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pedido in pedidos_recientes %}
+                                    <tr>
+                                        <td>{{ pedido.id }}</td>
+                                        <td>{{ pedido.nombre_completo }}</td>
+                                        <td>{{ pedido.fecha_pedido|date:"d/m/Y H:i" }}</td>
+                                        <td>${{ pedido.total }}</td>
+                                        <td>
+                                            {% if pedido.estado == 'pendiente' %}
+                                                <span class="badge bg-warning text-dark">Pendiente</span>
+                                            {% elif pedido.estado == 'procesando' %}
+                                                <span class="badge bg-info text-dark">Procesando</span>
+                                            {% elif pedido.estado == 'enviado' %}
+                                                <span class="badge bg-primary">Enviado</span>
+                                            {% elif pedido.estado == 'entregado' %}
+                                                <span class="badge bg-success">Entregado</span>
+                                            {% elif pedido.estado == 'cancelado' %}
+                                                <span class="badge bg-danger">Cancelado</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'pedidos:admin_detalle_pedido' pedido.id %}" class="btn btn-sm btn-primary">Ver</a>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="6" class="text-center">No hay pedidos recientes</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Datos para el gráfico de pedidos por mes
+        var pedidosPorMesCtx = document.getElementById('pedidosPorMesChart').getContext('2d');
+        var pedidosPorMesChart = new Chart(pedidosPorMesCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ meses_labels|safe }},
+                datasets: [{
+                    label: 'Pedidos',
+                    data: {{ pedidos_por_mes }},
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        stepSize: 1
+                    }
+                }
+            }
+        });
+        
+        // Datos para el gráfico de estados de pedidos
+        var estadosPedidosCtx = document.getElementById('estadosPedidosChart').getContext('2d');
+        var estadosPedidosChart = new Chart(estadosPedidosCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Pendiente', 'Procesando', 'Enviado', 'Entregado', 'Cancelado'],
+                datasets: [{
+                    data: [
+                        {{ pedidos_pendientes }},
+                        {{ pedidos_procesando }},
+                        {{ pedidos_enviados }},
+                        {{ pedidos_entregados }},
+                        {{ pedidos_cancelados }}
+                    ],
+                    backgroundColor: [
+                        'rgba(255, 193, 7, 0.7)', // Amarillo para pendiente
+                        'rgba(23, 162, 184, 0.7)', // Azul claro para procesando
+                        'rgba(13, 110, 253, 0.7)', // Azul para enviado
+                        'rgba(40, 167, 69, 0.7)', // Verde para entregado
+                        'rgba(220, 53, 69, 0.7)'  // Rojo para cancelado
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %}

@@ -120,3 +120,55 @@ class ItemPedido(models.Model):
     def precio_total(self):
         """Calcula el subtotal de este ítem (precio * cantidad)"""
         return self.precio * self.cantidad
+    
+    
+def get_items_count(self):
+    """Devuelve el número total de ítems en el pedido"""
+    return sum(item.cantidad for item in self.items.all())
+
+def get_status_display_class(self):
+    """Devuelve una clase CSS según el estado del pedido"""
+    classes = {
+        self.PENDIENTE: 'warning',
+        self.PROCESANDO: 'info',
+        self.ENVIADO: 'primary',
+        self.ENTREGADO: 'success',
+        self.CANCELADO: 'danger'
+    }
+    return classes.get(self.estado, 'secondary')
+
+@classmethod
+def get_estadisticas(cls):
+    """Obtiene estadísticas globales de pedidos"""
+    from django.db.models import Count, Sum, Avg
+    from django.utils import timezone
+    import datetime
+    
+    # Fecha de hace 30 días
+    hace_30_dias = timezone.now() - datetime.timedelta(days=30)
+    
+    # Todos los pedidos
+    total_pedidos = cls.objects.count()
+    
+    # Pedidos de los últimos 30 días
+    pedidos_recientes = cls.objects.filter(fecha_pedido__gte=hace_30_dias).count()
+    
+    # Cantidad de pedidos por estado
+    pedidos_por_estado = dict(cls.objects.values('estado').annotate(
+        total=Count('id')).values_list('estado', 'total'))
+    
+    # Ingresos totales (de pedidos pagados)
+    # Nota: Esto asume que tienes un método total() que calcula el total del pedido
+    ingresos_totales = sum(p.total() for p in cls.objects.filter(pagado=True))
+    
+    # Ingresos de los últimos 30 días
+    ingresos_recientes = sum(p.total() for p in cls.objects.filter(
+        pagado=True, fecha_pedido__gte=hace_30_dias))
+    
+    return {
+        'total_pedidos': total_pedidos,
+        'pedidos_recientes': pedidos_recientes,
+        'pedidos_por_estado': pedidos_por_estado,
+        'ingresos_totales': ingresos_totales,
+        'ingresos_recientes': ingresos_recientes,
+    }    
