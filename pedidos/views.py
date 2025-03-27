@@ -12,6 +12,21 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from django.core.paginator import Paginator
 from django.views.generic import ListView
+import csv
+from django.http import HttpResponse
+from datetime import datetime
+from django.db.models import Q
+from django.db.models import Sum, Avg, Count
+import calendar
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
+from django.http import HttpResponse
+from datetime import datetime
+from io import BytesIO
+from django.contrib.auth.models import User
+from django.http import JsonResponse
+from django.template.loader import render_to_string
 
 @login_required
 def crear_pedido(request):
@@ -190,38 +205,39 @@ def estadisticas_pedidos(request):
         'pedidos_recientes': pedidos_recientes,
     }
     
+    # Métricas adicionales
+    valor_promedio_pedidos = pedidos.aggregate(avg=Avg('items__precio'))['avg'] or 0
+    
+    # Ventas totales
+    ventas_totales = sum(pedido.total() for pedido in pedidos)
+    
+    # Ventas por mes (último año)
+    fecha_inicio_anual = timezone.now() - timedelta(days=365)
+    
+    # Mejores clientes
+    mejores_clientes = User.objects.annotate(
+        total_pedidos=Count('pedidos'),
+        gasto_total=Sum('pedidos__items__precio')
+    ).order_by('-gasto_total')[:5]
+    
+    # Añadir al contexto
+    context.update({
+        'valor_promedio_pedidos': valor_promedio_pedidos,
+        'ventas_totales': ventas_totales,
+        'mejores_clientes': mejores_clientes,
+    })
+    
     return render(request, 'pedidos/admin/estadisticas.html', context)
 
 @login_required
 @user_passes_test(es_admin)
 def admin_lista_pedidos(request):
     """Vista para que los administradores gestionen todos los pedidos"""
-    # Inicializar el queryset con todos los pedidos
-    queryset = Pedido.objects.all().order_by('-fecha_pedido')
-    
-    # Aplicar filtros si existen
-    estado = request.GET.get('estado')
-    fecha_desde = request.GET.get('fecha_desde')
-    fecha_hasta = request.GET.get('fecha_hasta')
-    
-    if estado:
-        queryset = queryset.filter(estado=estado)
-    
-    if fecha_desde:
-        queryset = queryset.filter(fecha_pedido__date__gte=fecha_desde)
-    
-    if fecha_hasta:
-        queryset = queryset.filter(fecha_pedido__date__lte=fecha_hasta)
-    
-    # Paginar los resultados
-    paginator = Paginator(queryset, 10)  # Mostrar 10 pedidos por página
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    # Con DataTables podemos cargar todos los pedidos y hacer el filtrado en el cliente
+    pedidos = Pedido.objects.all().select_related('usuario').prefetch_related('items__producto')
     
     context = {
-        'pedidos': page_obj,
-        'is_paginated': page_obj.has_other_pages(),
-        'page_obj': page_obj,
+        'pedidos': pedidos,
     }
     
     return render(request, 'pedidos/admin/lista_pedidos.html', context)
@@ -237,11 +253,26 @@ def cambiar_estado_pedido(request, pedido_id):
         if nuevo_estado in dict(Pedido.ESTADOS).keys():
             notas = f"Cambio realizado por el administrador {request.user.username}"
             pedido.cambiar_estado(nuevo_estado, notas)
+            
+            # Si es una solicitud AJAX, devolver respuesta JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'mensaje': f'Estado del pedido #{pedido.id} actualizado a {nuevo_estado}'
+                })
+            
+            # Para solicitudes normales
             messages.success(request, f'Estado del pedido #{pedido.id} actualizado a {dict(Pedido.ESTADOS)[nuevo_estado]}')
         else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Estado no válido'
+                }, status=400)
+            
             messages.error(request, 'Estado no válido')
     
-    # Redirigir a la lista de pedidos manteniendo los filtros
+    # Redirigir a la lista de pedidos
     referer = request.META.get('HTTP_REFERER')
     if referer:
         return redirect(referer)
@@ -280,3 +311,119 @@ def actualizar_seguimiento(request, pedido_id):
     
     return redirect('pedidos:admin_detalle_pedido', pedido_id=pedido.id)
     
+
+@login_required
+@user_passes_test(es_admin)
+def exportar_pedidos_excel(request):
+    """Exportar pedidos a Excel con formato adecuado"""
+    # Aplicar filtros (similar a la vista de lista)
+    queryset = Pedido.objects.all().order_by('-fecha_pedido')
+    estado = request.GET.get('estado')
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    
+    if estado:
+        queryset = queryset.filter(estado=estado)
+    if fecha_desde:
+        queryset = queryset.filter(fecha_pedido__date__gte=fecha_desde)
+    if fecha_hasta:
+        queryset = queryset.filter(fecha_pedido__date__lte=fecha_hasta)
+    
+    # Crear un libro de Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Pedidos"
+    
+    # Definir estilos
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    centered_alignment = Alignment(horizontal='center')
+    border = Border(
+        left=Side(border_style='thin', color='000000'),
+        right=Side(border_style='thin', color='000000'),
+        top=Side(border_style='thin', color='000000'),
+        bottom=Side(border_style='thin', color='000000')
+    )
+    
+    # Encabezados
+    columns = ['ID', 'Cliente', 'Email', 'Fecha', 'Estado', 'Total', 'Productos']
+    for col_num, column_title in enumerate(columns, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.value = column_title
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = centered_alignment
+        cell.border = border
+    
+    # Agregar datos
+    for row_num, pedido in enumerate(queryset, 2):
+        # Lista de productos formateada
+        productos = ", ".join([f"{item.cantidad}x {item.producto.nombre}" for item in pedido.items.all()])
+        
+        # Datos de la fila
+        row = [
+            pedido.id, 
+            pedido.nombre_completo,
+            pedido.usuario.email,
+            pedido.fecha_pedido.strftime("%d/%m/%Y %H:%M"),
+            dict(Pedido.ESTADOS)[pedido.estado],
+            f"${pedido.total()}",
+            productos
+        ]
+        
+        # Escribir la fila y aplicar estilo
+        for col_num, cell_value in enumerate(row, 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.value = cell_value
+            cell.border = border
+            
+            # Centrar algunas columnas
+            if col_num in [1, 4, 5]:  # ID, Fecha, Estado
+                cell.alignment = centered_alignment
+    
+    # Autoajustar ancho de columnas
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(cell.value)
+            except:
+                pass
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Crear respuesta HTTP
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="pedidos_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+    
+    # Guardar el libro de trabajo en el objeto de respuesta
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    response.write(buffer.getvalue())
+    
+    return response
+
+@login_required
+@user_passes_test(es_admin)
+def cambiar_estado_pedido_ajax(request, pedido_id):
+    """Vista AJAX para cambiar el estado de un pedido"""
+    if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+        nuevo_estado = request.POST.get('nuevo_estado')
+        
+        if nuevo_estado in dict(Pedido.ESTADOS).keys():
+            notas = f"Cambio realizado por {request.user.username} vía AJAX"
+            pedido.cambiar_estado(nuevo_estado, notas)
+            
+            return JsonResponse({
+                'success': True,
+                'estado': nuevo_estado,
+                'estado_display': dict(Pedido.ESTADOS)[nuevo_estado]
+            })
+        
+        return JsonResponse({'success': False, 'error': 'Estado no válido'}, status=400)
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)

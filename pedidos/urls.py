@@ -15,4 +15,6 @@ urlpatterns = [
     path('admin/pedido/<int:pedido_id>/cambiar-estado/', views.cambiar_estado_pedido, name='cambiar_estado_pedido'),
     path('admin/pedido/<int:pedido_id>/', views.admin_detalle_pedido, name='admin_detalle_pedido'),
     path('admin/pedido/<int:pedido_id>/actualizar-seguimiento/', views.actualizar_seguimiento, name='actualizar_seguimiento'),
+    path('admin/pedidos/exportar/excel/', views.exportar_pedidos_excel, name='exportar_pedidos_excel'),
+    path('admin/pedido/<int:pedido_id>/cambiar-estado/', views.cambiar_estado_pedido, name='cambiar_estado_pedido'),
 ]

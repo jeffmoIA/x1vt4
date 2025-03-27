@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from catalogo.models import Producto
 from django.utils import timezone
+from django.core.mail import send_mail
+from django.conf import settings
+
 
 class Pedido(models.Model):
     # Estados del pedido
@@ -83,6 +86,22 @@ class Pedido(models.Model):
                 notas=notas
             )
             
+            # Enviar notificación por correo electrónico
+            try:
+                estado_display = dict(self.ESTADOS)[nuevo_estado]
+                send_mail(
+                    f'Pedido #{self.id} - Estado actualizado a {estado_display}',
+                    f'Hola {self.nombre_completo},\n\nTu pedido #{self.id} ha sido actualizado a: {estado_display}.\n\n' + 
+                    (f'Notas: {notas}\n\n' if notas else '') +
+                    'Gracias por tu compra en Moto Tienda.',
+                    settings.DEFAULT_FROM_EMAIL,
+                    [self.usuario.email],
+                    fail_silently=True,
+                )
+            except Exception:
+                # Fallar silenciosamente si hay problemas con el correo
+                pass
+            
             return True
         return False
 
@@ -120,8 +139,7 @@ class ItemPedido(models.Model):
     def precio_total(self):
         """Calcula el subtotal de este ítem (precio * cantidad)"""
         return self.precio * self.cantidad
-    
-    
+        
 def get_items_count(self):
     """Devuelve el número total de ítems en el pedido"""
     return sum(item.cantidad for item in self.items.all())
