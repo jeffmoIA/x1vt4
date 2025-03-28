@@ -35,7 +35,9 @@ TallaFormSet = inlineformset_factory(
 ImagenFormSet = inlineformset_factory(
     Producto, ImagenProducto,
     fields=('imagen', 'titulo', 'orden', 'es_principal'),
-    extra=3,
+    extra=1,  # Mostrar solo 1 formulario extra
+    max_num=10,  # Máximo 10 imágenes
+    validate_max=True,  # Validar el máximo
     can_delete=True,
     widgets={
         'imagen': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),

@@ -9,7 +9,6 @@
         Todos los productos
     {% endif %}
 {% endblock %}
-
 {% block content %}
     <div class="row">
         <!-- Barra lateral con filtros -->
@@ -111,33 +110,22 @@
                 <small class="text-muted">
                     Mostrando {{ productos.start_index|default:"0" }}-{{ productos.end_index|default:"0" }} de {{ productos.paginator.count|default:"0" }} productos
                 </small>
-            </div>
-
-            <!-- Información de depuración -->
-            <div class="alert alert-info mb-3">
-                <h5>Información de depuración:</h5>
-                <p>Productos en queryset: {{ productos|length }}</p>
-                <p>Número de filtros aplicados: {{ request.GET|length }}</p>
-                <p>Filtros: {{ request.GET }}</p>
-            </div>
-            
+            </div>            
             <div class="row">
                 {% for producto in productos %}
-                    <div class="col-md-4 mb-4">
-                        <div class="card h-100">
-                            {% if producto.imagen %}
-                                <img src="{{ producto.imagen.url }}" class="card-img-top" alt="{{ producto.nombre }}">
-                            {% else %}
-                                <img src="https://via.placeholder.com/300x200?text=Sin+imagen" class="card-img-top" alt="{{ producto.nombre }}">
-                            {% endif %}
-                            <div class="card-body">
-                                <h5 class="card-title">{{ producto.nombre }}</h5>
-                                <p class="card-text">{{ producto.descripcion|truncatewords:15 }}</p>
-                                <p class="card-text text-primary fw-bold">${{ producto.precio }}</p>
-                                <a href="{% url 'catalogo:detalle_producto' producto.id %}" class="btn btn-primary">Ver detalles</a>
-                            </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <img src="{{ producto.get_imagen_url }}" class="card-img-top" 
+                        alt="{{ producto.nombre }}" style="height: 200px; object-fit: contain;">
+                        
+                        <div class="card-body">
+                            <h5 class="card-title">{{ producto.nombre }}</h5>
+                            <p class="card-text">{{ producto.descripcion|truncatewords:15 }}</p>
+                            <p class="card-text text-primary fw-bold">${{ producto.precio }}</p>
+                            <a href="{% url 'catalogo:detalle_producto' producto.id %}" class="btn btn-primary">Ver detalles</a>
                         </div>
                     </div>
+                </div>
                 {% empty %}
                     <div class="col-12">
                         <div class="alert alert-info">

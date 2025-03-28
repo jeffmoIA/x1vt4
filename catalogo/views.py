@@ -109,7 +109,7 @@ def lista_productos(request):
     Vista para listar productos con filtrado y paginación
     """
     # Obtener todos los productos
-    productos_base = Producto.objects.all()
+    productos_base = Producto.objects.select_related('categoria', 'marca').prefetch_related('imagenes')
     print(f"Total de productos en la base de datos: {productos_base.count()}")
 
     # Obtener todas las categorías y marcas para los filtros
@@ -159,6 +159,10 @@ def lista_productos(request):
     
     print(f"Productos después de filtrar: {productos_filtrados.count()}")
     
+    for producto in productos_filtrados:
+        print(f"Producto: {producto.nombre} - Imagen principal: {producto.imagen}")
+        print(f"  Imágenes asociadas: {producto.imagenes.count()}")
+        
     # Paginar los resultados
     paginator = Paginator(productos_filtrados, 6)  # 6 productos por página
     page_number = request.GET.get('page', 1)
@@ -184,7 +188,21 @@ def lista_productos(request):
 
 def detalle_producto(request, producto_id):
     # Obtener un producto específico por su ID
-    producto = get_object_or_404(Producto, id=producto_id, disponible=True)
+    producto = get_object_or_404(
+        Producto.objects.select_related('categoria', 'marca')
+                        .prefetch_related('imagenes', 'tallas'),
+        id=producto_id, 
+        disponible=True
+    )
+    
+    # Ordenar las imágenes por el campo orden
+    imagenes = producto.imagenes.all().order_by('orden')
+    
+    # Si no hay imagen principal, usar la primera como principal
+    if imagenes.exists() and not imagenes.filter(es_principal=True).exists():
+        primera_imagen = imagenes.first()
+        primera_imagen.es_principal = True
+        primera_imagen.save()
     
     # Obtener productos relacionados (misma categoría, excluyendo el actual)
     productos_relacionados = Producto.objects.filter(
@@ -194,6 +212,7 @@ def detalle_producto(request, producto_id):
     
     return render(request, 'catalogo/detalle_producto.html', {
         'producto': producto,
+        'imagenes': imagenes,
         'productos_relacionados': productos_relacionados
     })
 

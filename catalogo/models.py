@@ -1,6 +1,16 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
+def validate_image_size(image):
+    """
+    Valida que el tamaño de la imagen no exceda 5MB
+    """
+    # Limitar el tamaño de la imagen a 5MB
+    max_size = 5 * 1024 * 1024  # 5MB en bytes
+    if image.size > max_size:
+        raise ValidationError(f'La imagen es demasiado grande. El tamaño máximo permitido es 5MB.')
+    
 class Categoria(models.Model):
      # Campo para el nombre de la categoría (motos, equipamiento, accesorios, etc.)
     nombre = models.CharField(max_length=100)
@@ -59,6 +69,36 @@ class Producto(models.Model):
 
      # Imagen principal del producto (se guardará en la carpeta 'productos/')
     imagen = models.ImageField(upload_to='productos/', blank=True, null=True)
+    
+    def get_imagen_principal(self):
+        """
+        Devuelve la imagen principal del producto, o la primera imagen,
+        o None si no hay imágenes.
+        """
+        # Primero intentar obtener la imagen marcada como principal
+        principal = self.imagenes.filter(es_principal=True).first()
+        if principal:
+            return principal
+            
+        # Si no hay imagen principal, devolver la primera imagen
+        return self.imagenes.first() or None
+        
+    def get_imagen_url(self):
+        """
+        Devuelve la URL de la imagen principal, o de la imagen original,
+        o una URL de placeholder si no hay imágenes.
+        """
+        # Primero intentar con las imágenes nuevas
+        principal = self.get_imagen_principal()
+        if principal and principal.imagen:
+            return principal.imagen.url
+            
+        # Luego intentar con la imagen original
+        if self.imagen:
+            return self.imagen.url
+            
+        # Si no hay imágenes, devolver un placeholder
+        return "https://via.placeholder.com/300x200?text=Sin+imagen"
 
     def __str__(self):
         # Representación textual del producto
@@ -82,11 +122,14 @@ class TallaProducto(models.Model):
 
 # Añadir el nuevo modelo para imágenes múltiples
 class ImagenProducto(models.Model):
-    # Relación con el producto (muchas imágenes pueden pertenecer a un producto)
+    # Relación con el producto
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='imagenes')
     
-    # Campo para la imagen
-    imagen = models.ImageField(upload_to='productos/imagenes/')
+    # Campo para la imagen con validación de tamaño
+    imagen = models.ImageField(
+        upload_to='productos/imagenes/',
+        validators=[validate_image_size]
+    )
     
     # Orden de visualización de la imagen
     orden = models.PositiveIntegerField(default=1)
@@ -122,26 +165,9 @@ class ImagenProducto(models.Model):
         
         super().save(*args, **kwargs)
         
-class ImagenProducto(models.Model):
-    # Relación con el producto (un producto puede tener muchas imágenes)
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='imagenes')
-    
-    # Campo para almacenar la imagen
-    imagen = models.ImageField(upload_to='productos/imagenes/')
-    
-    # Campo para ordenar las imágenes (útil para determinar la imagen principal)
-    orden = models.PositiveIntegerField(default=0)
-    
-    # Campo para marcar una imagen como principal
-    es_principal = models.BooleanField(default=False)
-    
-    # Campo para añadir un título a la imagen
-    titulo = models.CharField(max_length=200, blank=True, null=True)
-    
-    class Meta:
-        ordering = ['orden']  # Ordenar imágenes por el campo 'orden'
-        verbose_name = "Imagen de producto"
-        verbose_name_plural = "Imágenes de productos"
-    
-    def __str__(self):
-        return f"Imagen {self.orden} de {self.producto.nombre}"
+def validate_image_size(image):
+    # Limitar el tamaño de la imagen a 5MB
+    max_size = 5 * 1024 * 1024  # 5MB en bytes
+    if image.size > max_size:
+        raise ValidationError(f'La imagen es demasiado grande. El tamaño máximo permitido es 5MB.')
+

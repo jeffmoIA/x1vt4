@@ -14,33 +14,50 @@
     </nav>
 
     <div class="row">
-        <!-- Miniaturas de imágenes a la izquierda -->
+       <!-- Miniaturas de imágenes a la izquierda -->
         <div class="col-md-1 d-none d-md-block">
             <div class="d-flex flex-column">
                 {% if producto.imagenes.all %}
-                    {% for imagen in producto.imagenes.all %}
-                        <div class="mb-2 border p-1 {% if imagen.es_principal %}border-primary{% endif %}">
+                    {% for imagen in producto.imagenes.all|dictsort:"orden" %}
+                        <div class="mb-2 border p-1 thumbnail-item {% if imagen.es_principal %}border-primary{% endif %}" 
+                            data-index="{{ forloop.counter0 }}">
                             <img src="{{ imagen.imagen.url }}" class="img-fluid thumbnail-img" 
-                                onclick="changeMainImage(this.src)" alt="{{ imagen.titulo|default:producto.nombre }}">
+                                alt="{{ imagen.titulo|default:producto.nombre }}">
                         </div>
                     {% endfor %}
                 {% elif producto.imagen %}
-                    <div class="mb-2 border p-1">
+                    <div class="mb-2 border p-1 thumbnail-item active">
                         <img src="{{ producto.imagen.url }}" class="img-fluid thumbnail-img" 
-                            onclick="changeMainImage(this.src)" alt="{{ producto.nombre }}">
+                            alt="{{ producto.nombre }}">
                     </div>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Imagen principal en el centro -->
+       <!-- Carrusel de imágenes principal en el centro -->
         <div class="col-md-5">
             <div class="card border-0">
-                {% if producto.imagenes.exists %}
-                    {% with principal=producto.imagenes.filter.first %}
-                        <img id="main-image" src="{{ principal.imagen.url }}" class="card-img-top img-fluid" 
-                            alt="{{ principal.titulo|default:producto.nombre }}">
-                    {% endwith %}
+                {% if producto.imagenes.all %}
+                    <div id="productoCarousel" class="carousel slide" data-bs-ride="false">
+                        <div class="carousel-inner">
+                            {% for imagen in producto.imagenes.all|dictsort:"orden" %}
+                                <div class="carousel-item {% if imagen.es_principal %}active{% endif %}">
+                                    <img src="{{ imagen.imagen.url }}" class="d-block w-100" 
+                                        alt="{{ imagen.titulo|default:producto.nombre }}">
+                                </div>
+                            {% endfor %}
+                        </div>
+                        {% if producto.imagenes.count > 1 %}
+                            <button class="carousel-control-prev" type="button" data-bs-target="#productoCarousel" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Anterior</span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#productoCarousel" data-bs-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Siguiente</span>
+                            </button>
+                        {% endif %}
+                    </div>
                 {% elif producto.imagen %}
                     <img id="main-image" src="{{ producto.imagen.url }}" class="card-img-top img-fluid" alt="{{ producto.nombre }}">
                 {% else %}
@@ -48,7 +65,7 @@
                 {% endif %}
             </div>
         </div>
-        
+                
         <!-- Información del producto a la derecha -->
         <div class="col-md-6">
             <h1 class="mb-2">{{ producto.nombre }}</h1>
@@ -232,55 +249,90 @@
 </div>
 
 <!-- JavaScript para cambiar la imagen principal y manejar la cantidad -->
+<!-- JavaScript para el carrusel y miniaturas -->
 <script>
-function changeMainImage(src) {
-    document.getElementById('main-image').src = src;
-}
-
-function incrementQuantity() {
-    var input = document.getElementById('cantidad');
-    var max = parseInt(input.max) || 100;
-    var value = parseInt(input.value) || 0;
-    if (value < max) {
-        input.value = value + 1;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Activar el carrusel de Bootstrap
+        var carousel = document.getElementById('productoCarousel');
+        if (carousel) {
+            var carouselInstance = new bootstrap.Carousel(carousel, {
+                interval: false  // No auto-rotar
+            });
+            
+            // Sincronizar miniaturas con el carrusel
+            const thumbnails = document.querySelectorAll('.thumbnail-item');
+            thumbnails.forEach(function(thumbnail, index) {
+                thumbnail.addEventListener('click', function() {
+                    carouselInstance.to(index);
+                    
+                    // Actualizar borde de miniatura activa
+                    thumbnails.forEach(t => t.classList.remove('border-primary'));
+                    thumbnail.classList.add('border-primary');
+                });
+            });
+            
+            // Actualizar miniatura activa cuando cambia el carrusel
+            carousel.addEventListener('slid.bs.carousel', function(event) {
+                thumbnails.forEach(t => t.classList.remove('border-primary'));
+                const activeIndex = event.to;
+                if (thumbnails[activeIndex]) {
+                    thumbnails[activeIndex].classList.add('border-primary');
+                }
+            });
+        }
+        
+        // Funciones para incrementar/decrementar cantidad
+        window.incrementQuantity = function() {
+            var input = document.getElementById('cantidad');
+            var max = parseInt(input.max) || 100;
+            var value = parseInt(input.value) || 0;
+            if (value < max) {
+                input.value = value + 1;
+            }
+        }
+    
+        window.decrementQuantity = function() {
+            var input = document.getElementById('cantidad');
+            var value = parseInt(input.value) || 0;
+            if (value > 1) {
+                input.value = value - 1;
+            }
+        }
+    });
+    </script>
+    
+    <!-- Estilos adicionales para el carrusel -->
+    <style>
+    .thumbnail-img {
+        cursor: pointer;
+        transition: all 0.2s;
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
     }
-}
-
-function decrementQuantity() {
-    var input = document.getElementById('cantidad');
-    var value = parseInt(input.value) || 0;
-    if (value > 1) {
-        input.value = value - 1;
+    
+    .thumbnail-item {
+        cursor: pointer;
+        transition: all 0.3s ease;
     }
-}
-</script>
-
-<!-- Estilos adicionales -->
-<style>
-<style>
-.thumbnail-img {
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.thumbnail-img:hover {
-    opacity: 0.8;
-}
-
-/* CSS para tallas no disponibles */
-.text-decoration-line-through {
-    text-decoration: line-through !important;
-    position: relative;
-}
-
-/* Opcionalmente, añadir una línea más gruesa o visible */
-.text-decoration-line-through::after {
-    content: "";
-    position: absolute;
-    width: 100%;
-    height: 2px;
-    background-color: #999;
-    left: 0;
-    top: 50%;
-}
-</style>
+    
+    .thumbnail-item:hover {
+        border-color: #0d6efd !important;
+    }
+    
+    .thumbnail-item.border-primary {
+        border-width: 2px !important;
+    }
+    
+    /* Estilo para el carrusel */
+    .carousel-item img {
+        max-height: 400px;
+        object-fit: contain;
+    }
+    
+    /* CSS para tallas no disponibles */
+    .text-decoration-line-through {
+        text-decoration: line-through !important;
+    }
+    </style>
 {% endblock %}
