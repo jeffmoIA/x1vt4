@@ -1,5 +1,4 @@
 {% extends 'base/base.html' %}
-{% load crispy_forms_tags %}
 
 {% block title %}
     {% if categoria %}
@@ -23,33 +22,62 @@
                     <form method="get" action="">
                         <div class="mb-3">
                             <label for="id_nombre" class="form-label">Nombre del producto</label>
-                            {{ filtro.form.nombre|as_crispy_field }}
+                            <input type="text" name="nombre" id="id_nombre" class="form-control" 
+                                placeholder="Buscar por nombre..." value="{{ nombre_busqueda }}">
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label">Rango de precio</label>
                             <div class="row">
                                 <div class="col-6">
-                                    {{ filtro.form.precio_min|as_crispy_field }}
+                                    <label for="id_precio_min" class="form-label">Mínimo</label>
+                                    <input type="number" name="precio_min" id="id_precio_min" class="form-control" 
+                                        placeholder="Desde $" value="{{ precio_min }}">
                                 </div>
                                 <div class="col-6">
-                                    {{ filtro.form.precio_max|as_crispy_field }}
+                                    <label for="id_precio_max" class="form-label">Máximo</label>
+                                    <input type="number" name="precio_max" id="id_precio_max" class="form-control" 
+                                        placeholder="Hasta $" value="{{ precio_max }}">
                                 </div>
                             </div>
                         </div>
-                        
+                        <!-- Sección de categorías -->
                         <div class="mb-3">
                             <label class="form-label">Categorías</label>
-                            {{ filtro.form.categoria|as_crispy_field }}
+                            {% for cat in categorias %}
+                                <div class="form-check">
+                                    <input type="checkbox" name="categoria" value="{{ cat.id }}" 
+                                        id="cat_{{ cat.id }}" class="form-check-input"
+                                        {% if cat.id|stringformat:"s" in categorias_seleccionadas %}checked{% endif %}>
+                                    <label for="cat_{{ cat.id }}" class="form-check-label">
+                                        {{ cat.nombre }}
+                                    </label>
+                                </div>
+                            {% empty %}
+                                <div class="alert alert-info">No hay categorías disponibles</div>
+                            {% endfor %}
                         </div>
-                        
+                       <!-- Sección de marcas -->
                         <div class="mb-3">
                             <label class="form-label">Marcas</label>
-                            {{ filtro.form.marca|as_crispy_field }}
+                            {% for m in marcas %}
+                                <div class="form-check">
+                                    <input type="checkbox" name="marca" value="{{ m.id }}" 
+                                        id="marca_{{ m.id }}" class="form-check-input"
+                                        {% if m.id|stringformat:"s" in marcas_seleccionadas %}checked{% endif %}>
+                                    <label for="marca_{{ m.id }}" class="form-check-label">
+                                        {{ m.nombre }}
+                                    </label>
+                                </div>
+                            {% empty %}
+                                <div class="alert alert-info">No hay marcas disponibles</div>
+                            {% endfor %}
                         </div>
                         
                         <div class="mb-3 form-check">
-                            {{ filtro.form.disponible }}
+                            <input type="checkbox" name="disponible" id="id_disponible" 
+                                class="form-check-input" value="true"
+                                {% if disponible_seleccionado %}checked{% endif %}>
                             <label class="form-check-label" for="id_disponible">
                                 Solo mostrar productos disponibles
                             </label>
@@ -81,8 +109,16 @@
                     {% endif %}
                 </h1>
                 <small class="text-muted">
-                    Mostrando {{ productos.start_index }}-{{ productos.end_index }} de {{ productos.paginator.count }} productos
+                    Mostrando {{ productos.start_index|default:"0" }}-{{ productos.end_index|default:"0" }} de {{ productos.paginator.count|default:"0" }} productos
                 </small>
+            </div>
+
+            <!-- Información de depuración -->
+            <div class="alert alert-info mb-3">
+                <h5>Información de depuración:</h5>
+                <p>Productos en queryset: {{ productos|length }}</p>
+                <p>Número de filtros aplicados: {{ request.GET|length }}</p>
+                <p>Filtros: {{ request.GET }}</p>
             </div>
             
             <div class="row">

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Categoria, Marca, Producto, TallaProducto
+from .models import Categoria, Marca, Producto, TallaProducto, ImagenProducto
 
 # Registra el modelo Categoria en el panel de administración
 @admin.register(Categoria)
@@ -19,6 +19,10 @@ class TallaProductoInline(admin.TabularInline):
     model = TallaProducto
     extra = 1  # Número de formularios vacíos a mostrar
 
+class ImagenProductoInline(admin.TabularInline):
+    model = ImagenProducto
+    extra = 1  # Número de formularios vacíos a mostrar
+
 # Registra el modelo Producto en el panel de administración
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
@@ -29,5 +33,5 @@ class ProductoAdmin(admin.ModelAdmin):
     # Filtros laterales
     list_filter = ('categoria', 'marca', 'disponible')
     # Ordenar por fecha de creación (más reciente primero)
-    inlines = [TallaProductoInline]  # Añade la gestión de tallas integrada
+    inlines = [TallaProductoInline, ImagenProductoInline]  # Añadimos la gestión de tallas e imágenes integrada
     ordering = ('-fecha_creacion',)

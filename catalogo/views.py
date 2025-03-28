@@ -2,12 +2,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.db.models import Q
-from .models import Producto, Categoria, Marca
-from .forms import ProductoForm
-from .forms import ProductoForm, TallaFormSet
-from django.http import JsonResponse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.http import JsonResponse
 from django.urls import reverse
+from .models import Producto, Categoria, Marca, ImagenProducto
+from .forms import ProductoForm, TallaFormSet, ImagenFormSet
 from .filters import ProductoFilter
 
 # Función auxiliar para verificar si el usuario es administrador
@@ -30,26 +29,33 @@ def admin_lista_productos(request):
 @user_passes_test(es_admin)
 def crear_producto(request):
     if request.method == 'POST':
-        form = ProductoForm(request.POST, request.FILES)
-        formset = TallaFormSet(request.POST, prefix='tallas')
+        form = ProductoForm(request.POST)
+        talla_formset = TallaFormSet(request.POST, prefix='tallas')
+        imagen_formset = ImagenFormSet(request.POST, request.FILES, prefix='imagenes')
         
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid() and talla_formset.is_valid() and imagen_formset.is_valid():
             # Guardar el producto
             producto = form.save()
             
             # Guardar las tallas relacionadas
-            formset.instance = producto
-            formset.save()
+            talla_formset.instance = producto
+            talla_formset.save()
+            
+            # Guardar las imágenes relacionadas
+            imagen_formset.instance = producto
+            imagen_formset.save()
             
             messages.success(request, 'Producto creado exitosamente')
             return redirect('catalogo:admin_lista_productos')
     else:
         form = ProductoForm()
-        formset = TallaFormSet(prefix='tallas')
+        talla_formset = TallaFormSet(prefix='tallas')
+        imagen_formset = ImagenFormSet(prefix='imagenes')
     
     return render(request, 'catalogo/admin/editar_producto.html', {
         'form': form,
-        'formset': formset,
+        'talla_formset': talla_formset,
+        'imagen_formset': imagen_formset,
         'accion': 'Crear'
     })
 
@@ -60,21 +66,25 @@ def editar_producto(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id)
     
     if request.method == 'POST':
-        form = ProductoForm(request.POST, request.FILES, instance=producto)
-        formset = TallaFormSet(request.POST, instance=producto, prefix='tallas')
+        form = ProductoForm(request.POST, instance=producto)
+        talla_formset = TallaFormSet(request.POST, instance=producto, prefix='tallas')
+        imagen_formset = ImagenFormSet(request.POST, request.FILES, instance=producto, prefix='imagenes')
         
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid() and talla_formset.is_valid() and imagen_formset.is_valid():
             form.save()
-            formset.save()
+            talla_formset.save()
+            imagen_formset.save()
             messages.success(request, 'Producto actualizado exitosamente')
             return redirect('catalogo:admin_lista_productos')
     else:
         form = ProductoForm(instance=producto)
-        formset = TallaFormSet(instance=producto, prefix='tallas')
+        talla_formset = TallaFormSet(instance=producto, prefix='tallas')
+        imagen_formset = ImagenFormSet(instance=producto, prefix='imagenes')
     
     return render(request, 'catalogo/admin/editar_producto.html', {
         'form': form,
-        'formset': formset,
+        'talla_formset': talla_formset,
+        'imagen_formset': imagen_formset,
         'producto': producto,
         'accion': 'Editar'
     })
@@ -100,30 +110,57 @@ def lista_productos(request):
     """
     # Obtener todos los productos
     productos_base = Producto.objects.all()
-    
-    # Imprimir para depuración
     print(f"Total de productos en la base de datos: {productos_base.count()}")
 
-    # Aplicar filtros SOLAMENTE si hay parámetros GET excepto 'page'
-    filtro_aplicado = False
-    for key in request.GET:
-        if key != 'page':
-            filtro_aplicado = True
-            break
+    # Obtener todas las categorías y marcas para los filtros
+    categorias = Categoria.objects.all()
+    marcas = Marca.objects.all()
     
-    # Crear el filtro
-    filtro = ProductoFilter(request.GET, queryset=productos_base)
+    # Obtener las categorías y marcas seleccionadas
+    categorias_seleccionadas = request.GET.getlist('categoria')
+    marcas_seleccionadas = request.GET.getlist('marca')
     
-    # Decidir qué productos mostrar
-    if filtro_aplicado:
-        productos_a_mostrar = filtro.qs
-    else:
-        productos_a_mostrar = productos_base
+    # Aplicar filtros básicos sin usar django-filter
+    productos_filtrados = productos_base
     
-    print(f"Productos después de filtrar: {productos_a_mostrar.count()}")
+    # Filtrar por nombre
+    nombre_busqueda = request.GET.get('nombre', '')
+    if nombre_busqueda:
+        productos_filtrados = productos_filtrados.filter(nombre__icontains=nombre_busqueda)
+    
+    # Filtrar por precio mínimo
+    precio_min = request.GET.get('precio_min', '')
+    if precio_min:
+        try:
+            productos_filtrados = productos_filtrados.filter(precio__gte=float(precio_min))
+        except (ValueError, TypeError):
+            pass
+    
+    # Filtrar por precio máximo
+    precio_max = request.GET.get('precio_max', '')
+    if precio_max:
+        try:
+            productos_filtrados = productos_filtrados.filter(precio__lte=float(precio_max))
+        except (ValueError, TypeError):
+            pass
+    
+    # Filtrar por categorías
+    if categorias_seleccionadas:
+        productos_filtrados = productos_filtrados.filter(categoria__id__in=categorias_seleccionadas)
+    
+    # Filtrar por marcas
+    if marcas_seleccionadas:
+        productos_filtrados = productos_filtrados.filter(marca__id__in=marcas_seleccionadas)
+    
+    # Filtrar por disponibilidad
+    disponible = request.GET.get('disponible')
+    if disponible == 'true':
+        productos_filtrados = productos_filtrados.filter(disponible=True)
+    
+    print(f"Productos después de filtrar: {productos_filtrados.count()}")
     
     # Paginar los resultados
-    paginator = Paginator(productos_a_mostrar, 6)  # 6 productos por página
+    paginator = Paginator(productos_filtrados, 6)  # 6 productos por página
     page_number = request.GET.get('page', 1)
     
     try:
@@ -135,20 +172,25 @@ def lista_productos(request):
     
     return render(request, 'catalogo/lista_productos.html', {
         'productos': productos_paginados,
-        'filtro': filtro,
+        'categorias': categorias,
+        'marcas': marcas,
+        'categorias_seleccionadas': categorias_seleccionadas,
+        'marcas_seleccionadas': marcas_seleccionadas,
+        'nombre_busqueda': nombre_busqueda,
+        'precio_min': precio_min,
+        'precio_max': precio_max,
+        'disponible_seleccionado': disponible == 'true'
     })
 
 def detalle_producto(request, producto_id):
     # Obtener un producto específico por su ID
-    producto = get_object_or_404(
-        Producto.objects.select_related('categoria', 'marca'),
-        id=producto_id
-    )
+    producto = get_object_or_404(Producto, id=producto_id, disponible=True)
     
     # Obtener productos relacionados (misma categoría, excluyendo el actual)
     productos_relacionados = Producto.objects.filter(
-        categoria=producto.categoria
-    ).exclude(id=producto_id).select_related('categoria', 'marca')[:4]
+        categoria=producto.categoria,
+        disponible=True
+    ).exclude(id=producto_id)[:4]  # Limitamos a 4 productos relacionados
     
     return render(request, 'catalogo/detalle_producto.html', {
         'producto': producto,
@@ -160,39 +202,10 @@ def productos_por_categoria(request, categoria_id):
     categoria = get_object_or_404(Categoria, id=categoria_id)
     
     # Obtener todos los productos de esa categoría
-    productos_base = Producto.objects.filter(categoria=categoria)
-    
-    # Crear un filtro pero preseleccionando la categoría
-    filtro = ProductoFilter(request.GET, queryset=Producto.objects.all())
-    
-    # Si no hay parámetros GET excepto 'page', preseleccionar la categoría
-    filtro_aplicado = False
-    for key in request.GET:
-        if key != 'page':
-            filtro_aplicado = True
-            break
-    
-    if filtro_aplicado:
-        # Usar los resultados del filtro
-        productos_a_mostrar = filtro.qs.filter(categoria=categoria)
-    else:
-        # Usar todos los productos de esta categoría
-        productos_a_mostrar = productos_base
-    
-    # Paginar los resultados
-    paginator = Paginator(productos_a_mostrar, 6)
-    page_number = request.GET.get('page', 1)
-    
-    try:
-        productos_paginados = paginator.page(page_number)
-    except PageNotAnInteger:
-        productos_paginados = paginator.page(1)
-    except EmptyPage:
-        productos_paginados = paginator.page(paginator.num_pages)
+    productos = Producto.objects.filter(categoria=categoria, disponible=True)
     
     return render(request, 'catalogo/lista_productos.html', {
-        'productos': productos_paginados,
-        'filtro': filtro,
+        'productos': productos,
         'categoria': categoria
     })
 
@@ -201,42 +214,13 @@ def productos_por_marca(request, marca_id):
     marca = get_object_or_404(Marca, id=marca_id)
     
     # Obtener todos los productos de esa marca
-    productos_base = Producto.objects.filter(marca=marca)
-    
-    # Crear un filtro pero preseleccionando la marca
-    filtro = ProductoFilter(request.GET, queryset=Producto.objects.all())
-    
-    # Si no hay parámetros GET excepto 'page', preseleccionar la marca
-    filtro_aplicado = False
-    for key in request.GET:
-        if key != 'page':
-            filtro_aplicado = True
-            break
-    
-    if filtro_aplicado:
-        # Usar los resultados del filtro
-        productos_a_mostrar = filtro.qs.filter(marca=marca)
-    else:
-        # Usar todos los productos de esta marca
-        productos_a_mostrar = productos_base
-    
-    # Paginar los resultados
-    paginator = Paginator(productos_a_mostrar, 6)
-    page_number = request.GET.get('page', 1)
-    
-    try:
-        productos_paginados = paginator.page(page_number)
-    except PageNotAnInteger:
-        productos_paginados = paginator.page(1)
-    except EmptyPage:
-        productos_paginados = paginator.page(paginator.num_pages)
+    productos = Producto.objects.filter(marca=marca, disponible=True)
     
     return render(request, 'catalogo/lista_productos.html', {
-        'productos': productos_paginados,
-        'filtro': filtro,
+        'productos': productos,
         'marca': marca
     })
-
+    
 @login_required
 @user_passes_test(es_admin)
 def admin_productos_data(request):

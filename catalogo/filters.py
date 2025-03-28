@@ -39,6 +39,7 @@ class ProductoFilter(django_filters.FilterSet):
     # Filtro por disponibilidad
     disponible = django_filters.BooleanFilter(
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        initial=None,  # Importante: no aplicar valor inicial
         required=False,  # Importante: que no sea requerido
     )
     

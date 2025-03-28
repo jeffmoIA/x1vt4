@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 class Categoria(models.Model):
      # Campo para el nombre de la categoría (motos, equipamiento, accesorios, etc.)
@@ -63,7 +64,7 @@ class Producto(models.Model):
         # Representación textual del producto
         return self.nombre
     
-    # En catalogo/models.py, añade este nuevo modelo
+# En catalogo/models.py, añade este nuevo modelo
 class TallaProducto(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='tallas')
     talla = models.CharField(max_length=20)  # Puede ser "S", "M", "42", "54", etc.
@@ -78,3 +79,69 @@ class TallaProducto(models.Model):
 
     def __str__(self):
         return f"{self.producto.nombre} - Talla {self.talla}"
+
+# Añadir el nuevo modelo para imágenes múltiples
+class ImagenProducto(models.Model):
+    # Relación con el producto (muchas imágenes pueden pertenecer a un producto)
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='imagenes')
+    
+    # Campo para la imagen
+    imagen = models.ImageField(upload_to='productos/imagenes/')
+    
+    # Orden de visualización de la imagen
+    orden = models.PositiveIntegerField(default=1)
+    
+    # Indicar si es la imagen principal
+    es_principal = models.BooleanField(default=False)
+    
+    # Título opcional para la imagen (SEO)
+    titulo = models.CharField(max_length=200, blank=True, null=True)
+    
+    class Meta:
+        ordering = ['orden']  # Ordenar por el campo 'orden'
+        verbose_name = "Imagen de producto"
+        verbose_name_plural = "Imágenes de productos"
+    
+    def __str__(self):
+        return f"Imagen {self.orden} de {self.producto.nombre}"
+    
+    def save(self, *args, **kwargs):
+        # Si esta imagen se marca como principal, quitar el flag de las demás
+        if self.es_principal:
+            ImagenProducto.objects.filter(
+                producto=self.producto, 
+                es_principal=True
+            ).exclude(id=self.id or 0).update(es_principal=False)
+        
+        # Si no hay imágenes para este producto o no hay ninguna principal,
+        # marcar esta como principal automáticamente
+        elif not self.id:  # Si es un objeto nuevo
+            if not ImagenProducto.objects.filter(producto=self.producto).exists() or \
+               not ImagenProducto.objects.filter(producto=self.producto, es_principal=True).exists():
+                self.es_principal = True
+        
+        super().save(*args, **kwargs)
+        
+class ImagenProducto(models.Model):
+    # Relación con el producto (un producto puede tener muchas imágenes)
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='imagenes')
+    
+    # Campo para almacenar la imagen
+    imagen = models.ImageField(upload_to='productos/imagenes/')
+    
+    # Campo para ordenar las imágenes (útil para determinar la imagen principal)
+    orden = models.PositiveIntegerField(default=0)
+    
+    # Campo para marcar una imagen como principal
+    es_principal = models.BooleanField(default=False)
+    
+    # Campo para añadir un título a la imagen
+    titulo = models.CharField(max_length=200, blank=True, null=True)
+    
+    class Meta:
+        ordering = ['orden']  # Ordenar imágenes por el campo 'orden'
+        verbose_name = "Imagen de producto"
+        verbose_name_plural = "Imágenes de productos"
+    
+    def __str__(self):
+        return f"Imagen {self.orden} de {self.producto.nombre}"

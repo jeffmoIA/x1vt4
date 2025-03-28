@@ -17,19 +17,31 @@
         <!-- Miniaturas de imágenes a la izquierda -->
         <div class="col-md-1 d-none d-md-block">
             <div class="d-flex flex-column">
-                {% if producto.imagen %}
+                {% if producto.imagenes.all %}
+                    {% for imagen in producto.imagenes.all %}
+                        <div class="mb-2 border p-1 {% if imagen.es_principal %}border-primary{% endif %}">
+                            <img src="{{ imagen.imagen.url }}" class="img-fluid thumbnail-img" 
+                                onclick="changeMainImage(this.src)" alt="{{ imagen.titulo|default:producto.nombre }}">
+                        </div>
+                    {% endfor %}
+                {% elif producto.imagen %}
                     <div class="mb-2 border p-1">
-                        <img src="{{ producto.imagen.url }}" class="img-fluid thumbnail-img" onclick="changeMainImage(this.src)" alt="{{ producto.nombre }}">
+                        <img src="{{ producto.imagen.url }}" class="img-fluid thumbnail-img" 
+                            onclick="changeMainImage(this.src)" alt="{{ producto.nombre }}">
                     </div>
-                    <!-- Aquí irían más miniaturas cuando implementes múltiples imágenes -->
                 {% endif %}
             </div>
         </div>
-        
+
         <!-- Imagen principal en el centro -->
         <div class="col-md-5">
             <div class="card border-0">
-                {% if producto.imagen %}
+                {% if producto.imagenes.exists %}
+                    {% with principal=producto.imagenes.filter.first %}
+                        <img id="main-image" src="{{ principal.imagen.url }}" class="card-img-top img-fluid" 
+                            alt="{{ principal.titulo|default:producto.nombre }}">
+                    {% endwith %}
+                {% elif producto.imagen %}
                     <img id="main-image" src="{{ producto.imagen.url }}" class="card-img-top img-fluid" alt="{{ producto.nombre }}">
                 {% else %}
                     <img src="https://via.placeholder.com/600x400?text=Sin+imagen" class="card-img-top img-fluid" alt="{{ producto.nombre }}">

@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import Producto, TallaProducto
+from .models import Producto, TallaProducto, ImagenProducto
 
 class ProductoForm(forms.ModelForm):
     class Meta:
@@ -28,5 +28,19 @@ TallaFormSet = inlineformset_factory(
         'talla': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: S, M, 42, 54'}),
         'disponible': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         'stock': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+    }
+)
+
+# Formset para imágenes
+ImagenFormSet = inlineformset_factory(
+    Producto, ImagenProducto,
+    fields=('imagen', 'titulo', 'orden', 'es_principal'),
+    extra=3,
+    can_delete=True,
+    widgets={
+        'imagen': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+        'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título de la imagen'}),
+        'orden': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+        'es_principal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
     }
 )
