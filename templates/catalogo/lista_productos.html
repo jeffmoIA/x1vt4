@@ -1,4 +1,5 @@
 {% extends 'base/base.html' %}
+{% load crispy_forms_tags %}
 
 {% block title %}
     {% if categoria %}
@@ -19,29 +20,50 @@
                     <h5 class="mb-0">Filtros</h5>
                 </div>
                 <div class="card-body">
-                    <h6>Categorías</h6>
-                    <ul class="list-unstyled">
-                        {% for cat in categorias %}
-                            <li class="mb-2">
-                                <a href="{% url 'catalogo:productos_por_categoria' cat.id %}" class="text-decoration-none">
-                                    {{ cat.nombre }}
-                                </a>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                    
-                    <hr>
-                    
-                    <h6>Marcas</h6>
-                    <ul class="list-unstyled">
-                        {% for m in marcas %}
-                            <li class="mb-2">
-                                <a href="{% url 'catalogo:productos_por_marca' m.id %}" class="text-decoration-none">
-                                    {{ m.nombre }}
-                                </a>
-                            </li>
-                        {% endfor %}
-                    </ul>
+                    <form method="get" action="">
+                        <div class="mb-3">
+                            <label for="id_nombre" class="form-label">Nombre del producto</label>
+                            {{ filtro.form.nombre|as_crispy_field }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Rango de precio</label>
+                            <div class="row">
+                                <div class="col-6">
+                                    {{ filtro.form.precio_min|as_crispy_field }}
+                                </div>
+                                <div class="col-6">
+                                    {{ filtro.form.precio_max|as_crispy_field }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Categorías</label>
+                            {{ filtro.form.categoria|as_crispy_field }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Marcas</label>
+                            {{ filtro.form.marca|as_crispy_field }}
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            {{ filtro.form.disponible }}
+                            <label class="form-check-label" for="id_disponible">
+                                Solo mostrar productos disponibles
+                            </label>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-filter"></i> Aplicar filtros
+                            </button>
+                            <a href="{% url 'catalogo:lista_productos' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-sync"></i> Limpiar filtros
+                            </a>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -58,6 +80,9 @@
                         Todos los productos
                     {% endif %}
                 </h1>
+                <small class="text-muted">
+                    Mostrando {{ productos.start_index }}-{{ productos.end_index }} de {{ productos.paginator.count }} productos
+                </small>
             </div>
             
             <div class="row">
@@ -80,11 +105,57 @@
                 {% empty %}
                     <div class="col-12">
                         <div class="alert alert-info">
-                            No se encontraron productos.
+                            No se encontraron productos con los filtros seleccionados.
                         </div>
                     </div>
                 {% endfor %}
             </div>
+            
+            <!-- Controles de paginación -->
+            {% if productos.paginator.num_pages > 1 %}
+            <nav aria-label="Paginación de productos" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <!-- Botón "Anterior" -->
+                    {% if productos.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ productos.previous_page_number }}">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link" aria-hidden="true">&laquo;</span>
+                        </li>
+                    {% endif %}
+                    
+                    <!-- Números de página -->
+                    {% for i in productos.paginator.page_range %}
+                        {% if i == productos.number %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ i }}</span>
+                            </li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ i }}">{{ i }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <!-- Botón "Siguiente" -->
+                    {% if productos.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ productos.next_page_number }}">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link" aria-hidden="true">&raquo;</span>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
         </div>
     </div>
 {% endblock %}

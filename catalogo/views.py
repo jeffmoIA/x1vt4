@@ -6,9 +6,9 @@ from .models import Producto, Categoria, Marca
 from .forms import ProductoForm
 from .forms import ProductoForm, TallaFormSet
 from django.http import JsonResponse
-from django.core.paginator import Paginator
-import json
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.urls import reverse
+from .filters import ProductoFilter
 
 # Función auxiliar para verificar si el usuario es administrador
 def es_admin(user):
@@ -53,7 +53,6 @@ def crear_producto(request):
         'accion': 'Crear'
     })
 
-
 # Editar producto existente
 @login_required
 @user_passes_test(es_admin)
@@ -96,43 +95,59 @@ def eliminar_producto(request, producto_id):
     })
 
 def lista_productos(request):
-    # Obtener todos los productos disponibles
-    # Usamos select_related para precargar categoría y marca en una sola consulta
-    productos = Producto.objects.filter(disponible=True).select_related('categoria', 'marca')
+    """
+    Vista para listar productos con filtrado y paginación
+    """
+    # Obtener todos los productos
+    productos_base = Producto.objects.all()
     
-    # Obtener todas las categorías y marcas para los filtros laterales
-    categorias = Categoria.objects.all()
-    marcas = Marca.objects.all()
+    # Imprimir para depuración
+    print(f"Total de productos en la base de datos: {productos_base.count()}")
+
+    # Aplicar filtros SOLAMENTE si hay parámetros GET excepto 'page'
+    filtro_aplicado = False
+    for key in request.GET:
+        if key != 'page':
+            filtro_aplicado = True
+            break
     
-    # Búsqueda (opcional)
-    query = request.GET.get('q')
-    if query:
-        productos = productos.filter(
-            Q(nombre__icontains=query) | 
-            Q(descripcion__icontains=query)
-        )
+    # Crear el filtro
+    filtro = ProductoFilter(request.GET, queryset=productos_base)
+    
+    # Decidir qué productos mostrar
+    if filtro_aplicado:
+        productos_a_mostrar = filtro.qs
+    else:
+        productos_a_mostrar = productos_base
+    
+    print(f"Productos después de filtrar: {productos_a_mostrar.count()}")
+    
+    # Paginar los resultados
+    paginator = Paginator(productos_a_mostrar, 6)  # 6 productos por página
+    page_number = request.GET.get('page', 1)
+    
+    try:
+        productos_paginados = paginator.page(page_number)
+    except PageNotAnInteger:
+        productos_paginados = paginator.page(1)
+    except EmptyPage:
+        productos_paginados = paginator.page(paginator.num_pages)
     
     return render(request, 'catalogo/lista_productos.html', {
-        'productos': productos,
-        'categorias': categorias,
-        'marcas': marcas,
-        'query': query
+        'productos': productos_paginados,
+        'filtro': filtro,
     })
 
 def detalle_producto(request, producto_id):
     # Obtener un producto específico por su ID
-    # Usamos select_related para cargar categoría y marca en una sola consulta
     producto = get_object_or_404(
         Producto.objects.select_related('categoria', 'marca'),
-        id=producto_id, 
-        disponible=True
+        id=producto_id
     )
     
     # Obtener productos relacionados (misma categoría, excluyendo el actual)
-    # También usamos select_related para los productos relacionados
     productos_relacionados = Producto.objects.filter(
-        categoria=producto.categoria,
-        disponible=True
+        categoria=producto.categoria
     ).exclude(id=producto_id).select_related('categoria', 'marca')[:4]
     
     return render(request, 'catalogo/detalle_producto.html', {
@@ -145,10 +160,39 @@ def productos_por_categoria(request, categoria_id):
     categoria = get_object_or_404(Categoria, id=categoria_id)
     
     # Obtener todos los productos de esa categoría
-    productos = Producto.objects.filter(categoria=categoria, disponible=True)
+    productos_base = Producto.objects.filter(categoria=categoria)
+    
+    # Crear un filtro pero preseleccionando la categoría
+    filtro = ProductoFilter(request.GET, queryset=Producto.objects.all())
+    
+    # Si no hay parámetros GET excepto 'page', preseleccionar la categoría
+    filtro_aplicado = False
+    for key in request.GET:
+        if key != 'page':
+            filtro_aplicado = True
+            break
+    
+    if filtro_aplicado:
+        # Usar los resultados del filtro
+        productos_a_mostrar = filtro.qs.filter(categoria=categoria)
+    else:
+        # Usar todos los productos de esta categoría
+        productos_a_mostrar = productos_base
+    
+    # Paginar los resultados
+    paginator = Paginator(productos_a_mostrar, 6)
+    page_number = request.GET.get('page', 1)
+    
+    try:
+        productos_paginados = paginator.page(page_number)
+    except PageNotAnInteger:
+        productos_paginados = paginator.page(1)
+    except EmptyPage:
+        productos_paginados = paginator.page(paginator.num_pages)
     
     return render(request, 'catalogo/lista_productos.html', {
-        'productos': productos,
+        'productos': productos_paginados,
+        'filtro': filtro,
         'categoria': categoria
     })
 
@@ -157,13 +201,42 @@ def productos_por_marca(request, marca_id):
     marca = get_object_or_404(Marca, id=marca_id)
     
     # Obtener todos los productos de esa marca
-    productos = Producto.objects.filter(marca=marca, disponible=True)
+    productos_base = Producto.objects.filter(marca=marca)
+    
+    # Crear un filtro pero preseleccionando la marca
+    filtro = ProductoFilter(request.GET, queryset=Producto.objects.all())
+    
+    # Si no hay parámetros GET excepto 'page', preseleccionar la marca
+    filtro_aplicado = False
+    for key in request.GET:
+        if key != 'page':
+            filtro_aplicado = True
+            break
+    
+    if filtro_aplicado:
+        # Usar los resultados del filtro
+        productos_a_mostrar = filtro.qs.filter(marca=marca)
+    else:
+        # Usar todos los productos de esta marca
+        productos_a_mostrar = productos_base
+    
+    # Paginar los resultados
+    paginator = Paginator(productos_a_mostrar, 6)
+    page_number = request.GET.get('page', 1)
+    
+    try:
+        productos_paginados = paginator.page(page_number)
+    except PageNotAnInteger:
+        productos_paginados = paginator.page(1)
+    except EmptyPage:
+        productos_paginados = paginator.page(paginator.num_pages)
     
     return render(request, 'catalogo/lista_productos.html', {
-        'productos': productos,
+        'productos': productos_paginados,
+        'filtro': filtro,
         'marca': marca
     })
-    
+
 @login_required
 @user_passes_test(es_admin)
 def admin_productos_data(request):

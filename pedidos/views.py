@@ -95,7 +95,12 @@ def lista_pedidos(request):
 @login_required
 def detalle_pedido(request, pedido_id):
     """Mostrar los detalles de un pedido específico"""
-    pedido = get_object_or_404(Pedido, id=pedido_id, usuario=request.user)
+    # Usamos prefetch_related para cargar los items relacionados y sus productos en una sola consulta
+    pedido = get_object_or_404(
+        Pedido.objects.prefetch_related('items__producto'),
+        id=pedido_id, 
+        usuario=request.user
+    )
     return render(request, 'pedidos/detalle_pedido.html', {
         'pedido': pedido
     })

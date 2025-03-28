@@ -1,0 +1,18 @@
+/* Estilo para el formulario de filtro */
+.filtro-check {
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+}
+
+/* Estilo para las casillas de verificación */
+.filtro-check .form-check {
+    margin-bottom: 0.25rem;
+}
+
+/* Estilo para los campos de rango de precio */
+.rango-precio .form-control {
+    font-size: 0.9rem;
+}

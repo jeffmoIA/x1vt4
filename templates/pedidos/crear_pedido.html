@@ -1,4 +1,5 @@
 {% extends 'base/base.html' %}
+{% load crispy_forms_tags %}  <!-- Añade esta línea -->
 
 {% block title %}Completar pedido - Moto Tienda{% endblock %}
 
@@ -17,57 +18,9 @@
                     <form method="post" novalidate>
                         {% csrf_token %}
                         
-                        <div class="mb-3">
-                            <label for="{{ form.nombre_completo.id_for_label }}" class="form-label">Nombre completo</label>
-                            {{ form.nombre_completo }}
-                            {% if form.nombre_completo.errors %}
-                                <div class="invalid-feedback d-block">{{ form.nombre_completo.errors.0 }}</div>
-                            {% endif %}
-                        </div>
+                        {{ form|crispy }}  <!-- Reemplaza todo el contenido del formulario con esta línea -->
                         
-                        <div class="mb-3">
-                            <label for="{{ form.direccion.id_for_label }}" class="form-label">Dirección</label>
-                            {{ form.direccion }}
-                            {% if form.direccion.errors %}
-                                <div class="invalid-feedback d-block">{{ form.direccion.errors.0 }}</div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="{{ form.ciudad.id_for_label }}" class="form-label">Ciudad</label>
-                                {{ form.ciudad }}
-                                {% if form.ciudad.errors %}
-                                    <div class="invalid-feedback d-block">{{ form.ciudad.errors.0 }}</div>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="col-md-6 mb-3">
-                                <label for="{{ form.codigo_postal.id_for_label }}" class="form-label">Código postal</label>
-                                {{ form.codigo_postal }}
-                                {% if form.codigo_postal.errors %}
-                                    <div class="invalid-feedback d-block">{{ form.codigo_postal.errors.0 }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="{{ form.telefono.id_for_label }}" class="form-label">Teléfono</label>
-                            {{ form.telefono }}
-                            {% if form.telefono.errors %}
-                                <div class="invalid-feedback d-block">{{ form.telefono.errors.0 }}</div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="{{ form.notas.id_for_label }}" class="form-label">Notas adicionales</label>
-                            {{ form.notas }}
-                            {% if form.notas.errors %}
-                                <div class="invalid-feedback d-block">{{ form.notas.errors.0 }}</div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="d-grid">
+                        <div class="d-grid mt-3">
                             <button type="submit" class="btn btn-primary btn-lg">Completar pedido</button>
                         </div>
                     </form>
@@ -75,7 +28,7 @@
             </div>
         </div>
         
-        <!-- Resumen del pedido -->
+        <!-- Resumen del pedido (no se modifica) -->
         <div class="col-md-4">
             <div class="card">
                 <div class="card-header bg-secondary text-white">

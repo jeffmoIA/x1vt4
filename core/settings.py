@@ -50,6 +50,9 @@ INSTALLED_APPS = [
     'pedidos',
     # bibliotecas de terceros
     'debug_toolbar',
+    'crispy_forms',
+    'crispy_bootstrap5',
+    'django_filters',
     
 ]
 MIDDLEWARE = [
@@ -172,3 +175,7 @@ DEBUG_TOOLBAR_PANELS = [
     'debug_toolbar.panels.redirects.RedirectsPanel',
     'debug_toolbar.panels.profiling.ProfilingPanel',
 ]
+
+# Configuración de Crispy Forms
+CRISPY_ALLOWED_TEMPLATE_PACKS = 'bootstrap5'
+CRISPY_TEMPLATE_PACK = 'bootstrap5'

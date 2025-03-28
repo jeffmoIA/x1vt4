@@ -1,4 +1,5 @@
 {% extends 'base/base.html' %}
+{% load crispy_forms_tags %}  <!-- Añade esta línea -->
 
 {% block title %}Mi perfil - Moto Tienda{% endblock %}
 
@@ -24,62 +25,10 @@
                 <form method="post" novalidate>
                     {% csrf_token %}
                     
-                    <!-- Campo de teléfono -->
-                    <div class="mb-3">
-                        <label for="{{ form.telefono.id_for_label }}" class="form-label">Teléfono</label>
-                        <input type="text" name="{{ form.telefono.name }}" id="{{ form.telefono.id_for_label }}" 
-                               class="form-control {% if form.telefono.errors %}is-invalid{% endif %}"
-                               value="{{ form.telefono.value|default:'' }}">
-                        {% if form.telefono.errors %}
-                        <div class="invalid-feedback">
-                            {{ form.telefono.errors.0 }}
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Campo de dirección -->
-                    <div class="mb-3">
-                        <label for="{{ form.direccion.id_for_label }}" class="form-label">Dirección</label>
-                        <textarea name="{{ form.direccion.name }}" id="{{ form.direccion.id_for_label }}" 
-                                 class="form-control {% if form.direccion.errors %}is-invalid{% endif %}"
-                                 rows="3">{{ form.direccion.value|default:'' }}</textarea>
-                        {% if form.direccion.errors %}
-                        <div class="invalid-feedback">
-                            {{ form.direccion.errors.0 }}
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="row">
-                        <!-- Campo de ciudad -->
-                        <div class="col-md-8 mb-3">
-                            <label for="{{ form.ciudad.id_for_label }}" class="form-label">Ciudad</label>
-                            <input type="text" name="{{ form.ciudad.name }}" id="{{ form.ciudad.id_for_label }}" 
-                                   class="form-control {% if form.ciudad.errors %}is-invalid{% endif %}"
-                                   value="{{ form.ciudad.value|default:'' }}">
-                            {% if form.ciudad.errors %}
-                            <div class="invalid-feedback">
-                                {{ form.ciudad.errors.0 }}
-                            </div>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- Campo de código postal -->
-                        <div class="col-md-4 mb-3">
-                            <label for="{{ form.codigo_postal.id_for_label }}" class="form-label">Código postal</label>
-                            <input type="text" name="{{ form.codigo_postal.name }}" id="{{ form.codigo_postal.id_for_label }}" 
-                                   class="form-control {% if form.codigo_postal.errors %}is-invalid{% endif %}"
-                                   value="{{ form.codigo_postal.value|default:'' }}">
-                            {% if form.codigo_postal.errors %}
-                            <div class="invalid-feedback">
-                                {{ form.codigo_postal.errors.0 }}
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
+                    {{ form|crispy }}  <!-- Reemplaza todo el contenido del formulario con esta línea -->
                     
                     <!-- Botón para guardar cambios -->
-                    <div class="d-grid">
+                    <div class="d-grid mt-3">
                         <button type="submit" class="btn btn-primary">Guardar cambios</button>
                     </div>
                 </form>
