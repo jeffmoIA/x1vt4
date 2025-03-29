@@ -143,5 +143,17 @@
             console.error("La tabla no está inicializada");
         }
     }
+    function limpiarCacheImagenes() {
+        // Mostrar indicador de carga
+        toastr.info('Refrescando imágenes...', '', { timeOut: 2000 });
+        
+        // Recargar la tabla forzando una nueva solicitud
+        productosTable.ajax.reload(null, false);
+        
+        // Notificar al usuario
+        setTimeout(function() {
+            toastr.success('Imágenes actualizadas correctamente');
+        }, 2000);
+    }
 </script>
 {% endblock %}

@@ -29,30 +29,67 @@ def admin_lista_productos(request):
 @login_required
 @user_passes_test(es_admin)
 def crear_producto(request):
+    """
+    Vista para crear un nuevo producto con sus tallas e imágenes asociadas.
+    Gestiona el formulario principal del producto y los formsets para tallas e imágenes.
+    """
     if request.method == 'POST':
-        form = ProductoForm(request.POST)
+        # Imprimir información de depuración
+        print("POST recibido para crear producto")
+        print(f"Tallas TOTAL_FORMS: {request.POST.get('tallas-TOTAL_FORMS')}")
+        print(f"Imágenes TOTAL_FORMS: {request.POST.get('imagenes-TOTAL_FORMS')}")
+        
+        # Crear formularios con los datos POST
+        form = ProductoForm(request.POST, request.FILES)
         talla_formset = TallaFormSet(request.POST, prefix='tallas')
         imagen_formset = ImagenFormSet(request.POST, request.FILES, prefix='imagenes')
         
-        if form.is_valid() and talla_formset.is_valid() and imagen_formset.is_valid():
-            # Guardar el producto
-            producto = form.save()
+        # Validar formulario principal
+        if form.is_valid():
+            # Guardar producto primero para obtener un ID
+            producto = form.save(commit=True)
             
-            # Guardar las tallas relacionadas
+            # Asignar el producto a los formsets
             talla_formset.instance = producto
-            talla_formset.save()
-            
-            # Guardar las imágenes relacionadas
             imagen_formset.instance = producto
-            imagen_formset.save()
             
-            messages.success(request, 'Producto creado exitosamente')
-            return redirect('catalogo:admin_lista_productos')
+            # Validar formsets de tallas e imágenes
+            tallas_valid = talla_formset.is_valid()
+            imagenes_valid = imagen_formset.is_valid()
+            
+            if not tallas_valid:
+                print("Errores en formset de tallas:")
+                for i, errors in enumerate(talla_formset.errors):
+                    print(f"  Formulario {i}: {errors}")
+                print(f"  Errores no de formulario: {talla_formset.non_form_errors()}")
+            
+            if not imagenes_valid:
+                print("Errores en formset de imágenes:")
+                for i, errors in enumerate(imagen_formset.errors):
+                    print(f"  Formulario {i}: {errors}")
+                print(f"  Errores no de formulario: {imagen_formset.non_form_errors()}")
+            
+            # Si ambos formsets son válidos, guardarlos
+            if tallas_valid and imagenes_valid:
+                talla_formset.save()
+                imagen_formset.save()
+                
+                messages.success(request, f'Producto "{producto.nombre}" creado exitosamente')
+                return redirect('catalogo:admin_lista_productos')
+            else:
+                # Si hay errores en los formsets, mostramos mensaje general
+                messages.error(request, 'Por favor, corrige los errores en el formulario')
+        else:
+            # Si hay errores en el formulario principal
+            print("Errores en formulario principal:", form.errors)
+            messages.error(request, 'Por favor, corrige los errores en el formulario principal')
     else:
+        # Para solicitudes GET, mostrar formularios vacíos
         form = ProductoForm()
         talla_formset = TallaFormSet(prefix='tallas')
         imagen_formset = ImagenFormSet(prefix='imagenes')
     
+    # Renderizar plantilla con los formularios
     return render(request, 'catalogo/admin/editar_producto.html', {
         'form': form,
         'talla_formset': talla_formset,
@@ -273,6 +310,7 @@ def productos_por_marca(request, marca_id):
 def admin_productos_data(request):
     """
     Vista para procesar solicitudes AJAX de DataTables y devolver datos de productos paginados
+    con imágenes que se actualizan correctamente.
     """
     import time
     
@@ -284,7 +322,7 @@ def admin_productos_data(request):
         search_value = request.POST.get('search[value]', '')  # Valor de búsqueda
         
         # Configuración de orden
-        order_column_index = str(request.POST.get('order[0][column]', '1'))  # Índice como string
+        order_column_index = request.POST.get('order[0][column]', '1')  # Índice de columna para ordenar
         order_dir = request.POST.get('order[0][dir]', 'asc')  # Dirección (asc/desc)
         
         # Mapeo de índices de columna a campos de la base de datos
@@ -304,8 +342,8 @@ def admin_productos_data(request):
         if order_dir == 'desc':
             order_column = f'-{order_column}'
         
-        # Consulta base - todos los productos
-        queryset = Producto.objects.all()
+        # Consulta base - todos los productos con sus relaciones
+        queryset = Producto.objects.all().select_related('categoria', 'marca').prefetch_related('imagenes')
         
         # Filtrar por término de búsqueda si existe
         if search_value:
@@ -323,20 +361,25 @@ def admin_productos_data(request):
         # Ordenar y paginar los resultados
         queryset = queryset.order_by(order_column)[start:start + length]
         
-        # Generar timestamp base para evitar caché de imágenes
-        # Multiplicar por 1000 para obtener milisegundos y asegurar unicidad
-        base_timestamp = int(time.time() * 1000)
+        # Generar timestamp único por solicitud para evitar cachés
+        timestamp = int(time.time() * 1000)
         
         # Preparar los datos para la respuesta
         data = []
         for i, producto in enumerate(queryset):
-            # Generar un timestamp único para cada producto
-            # Sumar el índice para garantizar que cada imagen tenga un timestamp diferente
-            unique_timestamp = base_timestamp + i
+            # Intentar obtener la imagen principal desde las relaciones
+            imagen_url = None
             
-            # URL de la imagen con timestamp único para forzar recarga
-            if producto.imagen:
-                imagen_url = f"{producto.imagen.url}?v={unique_timestamp}"
+            # 1. Buscar primero en las imágenes relacionadas (nuevo método)
+            imagen_principal = producto.get_imagen_principal()
+            if imagen_principal and hasattr(imagen_principal, 'imagen') and imagen_principal.imagen:
+                imagen_url = f"{imagen_principal.imagen.url}?v={timestamp}-{producto.id}"
+            
+            # 2. Si no hay imagen principal, buscar en el campo imagen del producto
+            elif producto.imagen:
+                imagen_url = f"{producto.imagen.url}?v={timestamp}-{producto.id}"
+            
+            # 3. Si no hay ninguna imagen, usar un placeholder
             else:
                 imagen_url = '/static/img/placeholder.png'
             
@@ -364,7 +407,7 @@ def admin_productos_data(request):
             
             # Agregar el producto a la lista de datos
             data.append({
-                'imagen': f'<img src="{imagen_url}" alt="{producto.nombre}" width="50">',
+                'imagen': f'<img src="{imagen_url}" alt="{producto.nombre}" width="50" height="50" style="object-fit: cover;">',
                 'nombre': producto.nombre,
                 'precio': f'${producto.precio}',
                 'categoria': producto.categoria.nombre,
@@ -392,9 +435,9 @@ def admin_productos_data(request):
         
         # Devolver una respuesta de error formateada para DataTables
         return JsonResponse({
-            'draw': draw if 'draw' in locals() else 1,  # Usar 1 si draw no está definido
+            'draw': draw if 'draw' in locals() else 1,
             'recordsTotal': 0,
             'recordsFiltered': 0,
             'data': [],
             'error': str(e)
-        })
+        }, status=500)

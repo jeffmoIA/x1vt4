@@ -28,6 +28,7 @@ TallaFormSet = inlineformset_factory(
     validate_min=False,  # No validar el mínimo
     max_num=15,  # Máximo razonable de tallas
     validate_max=True,  # Validar el máximo
+    absolute_max=20,  # Límite absoluto para prevenir ataques
     widgets={
         'talla': forms.TextInput(attrs={
             'class': 'form-control', 
@@ -39,6 +40,23 @@ TallaFormSet = inlineformset_factory(
             'min': '0',
             'placeholder': 'Cantidad disponible'
         }),
+    }
+)
+
+# Formset para imágenes
+ImagenFormSet = inlineformset_factory(
+    Producto, ImagenProducto,
+    fields=('imagen', 'titulo', 'orden', 'es_principal'),
+    extra=1,  # Mostrar solo 1 formulario extra
+    max_num=10,  # Máximo 10 imágenes
+    validate_max=True,  # Validar el máximo
+    absolute_max=15,  # Límite absoluto para prevenir ataques
+    can_delete=True,
+    widgets={
+        'imagen': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+        'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título de la imagen'}),
+        'orden': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+        'es_principal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
     }
 )
 
