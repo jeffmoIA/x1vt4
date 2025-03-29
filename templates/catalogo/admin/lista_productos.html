@@ -27,7 +27,62 @@
             </div>
         {% endfor %}
     {% endif %}
-    
+    <!-- Panel de filtros -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">
+                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFiltros" aria-expanded="false">
+                    <i class="fas fa-filter"></i> Filtros avanzados
+                </button>
+            </h5>
+        </div>
+        <div class="collapse" id="collapseFiltros">
+            <div class="card-body">
+                <div class="row">
+                    <!-- Filtro por categoría -->
+                    <div class="col-md-4 mb-3">
+                        <label for="filtro-categoria" class="form-label">Categoría</label>
+                        <select id="filtro-categoria" class="form-select">
+                            <option value="">Todas las categorías</option>
+                            {% for categoria in categorias %}
+                                <option value="{{ categoria.id }}">{{ categoria.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por marca -->
+                    <div class="col-md-4 mb-3">
+                        <label for="filtro-marca" class="form-label">Marca</label>
+                        <select id="filtro-marca" class="form-select">
+                            <option value="">Todas las marcas</option>
+                            {% for marca in marcas %}
+                                <option value="{{ marca.id }}">{{ marca.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por disponibilidad -->
+                    <div class="col-md-4 mb-3">
+                        <label for="filtro-disponibilidad" class="form-label">Disponibilidad</label>
+                        <select id="filtro-disponibilidad" class="form-select">
+                            <option value="">Todos los productos</option>
+                            <option value="1">Disponibles</option>
+                            <option value="0">No disponibles</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="text-end">
+                    <button id="aplicar-filtros" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Aplicar filtros
+                    </button>
+                    <button id="limpiar-filtros" class="btn btn-outline-secondary">
+                        <i class="fas fa-times"></i> Limpiar filtros
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
@@ -72,8 +127,107 @@
         return cookieValue;
     }
 
+    // Variables para los filtros
+    let filtroCategoria = '';
+    let filtroMarca = '';
+    let filtroDisponibilidad = '';
+    
     // Variable global para la tabla
     let productosTable;
+
+    // Función para limpiar la caché de imágenes
+    function limpiarCacheImagenes() {
+        // Mostrar indicador de carga
+        toastr.info('Refrescando imágenes...', '', { timeOut: 2000 });
+        
+        // Recargar la tabla forzando una nueva solicitud
+        productosTable.ajax.reload(null, false);
+        
+        // Notificar al usuario
+        setTimeout(function() {
+            toastr.success('Imágenes actualizadas correctamente');
+        }, 2000);
+    }
+
+    // Botón para aplicar filtros
+    document.getElementById('aplicar-filtros').addEventListener('click', function() {
+        filtroCategoria = document.getElementById('filtro-categoria').value;
+        filtroMarca = document.getElementById('filtro-marca').value;
+        filtroDisponibilidad = document.getElementById('filtro-disponibilidad').value;
+        
+        // Mostrar indicadores de filtros activos
+        actualizarIndicadoresFiltros();
+        
+        // Recargar la tabla con los filtros
+        productosTable.ajax.reload();
+    });
+
+    // Botón para limpiar filtros
+    document.getElementById('limpiar-filtros').addEventListener('click', function() {
+        // Resetear valores de los filtros
+        document.getElementById('filtro-categoria').value = '';
+        document.getElementById('filtro-marca').value = '';
+        document.getElementById('filtro-disponibilidad').value = '';
+        
+        // Limpiar variables
+        filtroCategoria = '';
+        filtroMarca = '';
+        filtroDisponibilidad = '';
+        
+        // Actualizar indicadores
+        actualizarIndicadoresFiltros();
+        
+        // Recargar la tabla
+        productosTable.ajax.reload();
+    });
+
+    // Función para mostrar indicadores de filtros activos
+    function actualizarIndicadoresFiltros() {
+        const indicadoresDiv = document.getElementById('filtros-activos');
+        
+        if (!indicadoresDiv) {
+            // Crear el contenedor si no existe
+            const container = document.querySelector('.d-flex.justify-content-between.align-items-center.mb-4');
+            const nuevoDiv = document.createElement('div');
+            nuevoDiv.id = 'filtros-activos';
+            nuevoDiv.className = 'filtros-activos mt-2';
+            container.parentNode.insertBefore(nuevoDiv, container.nextSibling);
+        }
+        
+        // Obtener el contenedor (ahora seguro que existe)
+        const contenedor = document.getElementById('filtros-activos');
+        contenedor.innerHTML = '';
+        
+        // Array para almacenar textos de filtros activos
+        const filtrosActivos = [];
+        
+        // Verificar cada filtro
+        if (filtroCategoria) {
+            const select = document.getElementById('filtro-categoria');
+            const texto = select.options[select.selectedIndex].text;
+            filtrosActivos.push(`<span class="badge bg-info me-2">Categoría: ${texto}</span>`);
+        }
+        
+        if (filtroMarca) {
+            const select = document.getElementById('filtro-marca');
+            const texto = select.options[select.selectedIndex].text;
+            filtrosActivos.push(`<span class="badge bg-info me-2">Marca: ${texto}</span>`);
+        }
+        
+        if (filtroDisponibilidad) {
+            const select = document.getElementById('filtro-disponibilidad');
+            const texto = select.options[select.selectedIndex].text;
+            filtrosActivos.push(`<span class="badge bg-info me-2">Disponibilidad: ${texto}</span>`);
+        }
+        
+        // Si hay filtros activos, mostrarlos
+        if (filtrosActivos.length > 0) {
+            contenedor.innerHTML = '<div class="d-flex align-items-center mb-3">' +
+                                  '<strong class="me-2">Filtros activos:</strong>' +
+                                  filtrosActivos.join('') +
+                                  '</div>';
+        }
+    }
 
     $(document).ready(function() {
         console.log("Inicializando DataTable...");
@@ -90,8 +244,12 @@
                 headers: {
                     "X-CSRFToken": getCookie('csrftoken')
                 },
-                // Añadir un timestamp a la solicitud para evitar caché
+                // Añadir datos de filtros y timestamp
                 data: function(d) {
+                    // Añadir los valores de los filtros
+                    d.categoria_id = filtroCategoria;
+                    d.marca_id = filtroMarca;
+                    d.disponibilidad = filtroDisponibilidad;
                     d._timestamp = new Date().getTime();
                     return d;
                 }
@@ -126,6 +284,18 @@
         }, 100); // Pequeño retraso para asegurar que la tabla está completamente inicializada
         {% endif %}
         
+        // Inicializar tooltips cada vez que se redibuja la tabla
+        productosTable.on('draw', function() {
+            // Desactivar tooltips existentes primero para evitar duplicados
+            $('.product-thumbnail[data-bs-toggle="tooltip"]').tooltip('dispose');
+            
+            // Inicializar nuevos tooltips
+            $('.product-thumbnail[data-bs-toggle="tooltip"]').tooltip({
+                placement: 'right',
+                boundary: 'window'
+            });
+        });
+        
         // Detección de errores AJAX
         $(document).ajaxError(function(event, jqxhr, settings, thrownError) {
             console.error('Error en petición AJAX:', thrownError);
@@ -143,17 +313,109 @@
             console.error("La tabla no está inicializada");
         }
     }
-    function limpiarCacheImagenes() {
-        // Mostrar indicador de carga
-        toastr.info('Refrescando imágenes...', '', { timeOut: 2000 });
-        
-        // Recargar la tabla forzando una nueva solicitud
-        productosTable.ajax.reload(null, false);
-        
-        // Notificar al usuario
-        setTimeout(function() {
-            toastr.success('Imágenes actualizadas correctamente');
-        }, 2000);
-    }
 </script>
+{% endblock %}
+{% block page_css %}
+{{ block.super }}
+<style>
+    /* Estilos para mejorar los controles de DataTables */
+    .dataTables_wrapper .dataTables_length, 
+    .dataTables_wrapper .dataTables_filter, 
+    .dataTables_wrapper .dt-buttons {
+        padding: 0.5rem 1rem;
+    }
+    
+    .dataTables_wrapper .dataTables_filter {
+        float: right;
+    }
+    
+    .dataTables_wrapper .dataTables_filter input {
+        width: 300px;
+        padding: 0.375rem 0.75rem;
+        margin-left: 0.5rem;
+    }
+    
+    .dataTables_wrapper .dt-buttons .btn {
+        margin-right: 0.5rem;
+    }
+    
+    .dataTables_wrapper .dataTables_info, 
+    .dataTables_wrapper .dataTables_paginate {
+        padding: 1rem;
+    }
+    
+    .dataTables_wrapper .dataTables_paginate {
+        float: right;
+    }
+    
+    /* Ajustes para los selectores de estado */
+    .estado-pedido {
+        min-width: 120px;
+    }
+    
+    /* Estilo para las cabeceras de la tabla */
+    #tabla-pedidos thead th {
+        background-color: #f8f9fa;
+    }
+
+    /* Estilos para miniaturas */
+    .product-thumbnail {
+        transition: transform 0.2s ease-in-out;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .product-thumbnail:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        z-index: 10;
+    }
+    
+    /* Asegurar que la columna de imagen tenga suficiente ancho */
+    #productos-table .imagen-column {
+        min-width: 80px;
+    }
+    
+    /* Mejorar la apariencia de los tooltips */
+    .tooltip-inner {
+        max-width: 200px;
+        background-color: rgba(0,0,0,0.8);
+        padding: 8px;
+        border-radius: 4px;
+    }
+    
+    /* Estilos para los filtros */
+    #collapseFiltros .card-body {
+        background-color: #f8f9fa;
+        border-radius: 0 0 4px 4px;
+    }
+
+    #filtros-activos {
+        background-color: #f8f9fb;
+        padding: 8px;
+        border-radius: 4px;
+        margin-bottom: 16px;
+    }
+
+    .filtros-activos .badge {
+        font-size: 0.9em;
+        padding: 0.5em 0.7em;
+    }
+
+    /* Mejorar apariencia de los botones de filtro */
+    #aplicar-filtros, #limpiar-filtros {
+        transition: all 0.2s;
+    }
+
+    #aplicar-filtros:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Estilo para mostrar visualmente cuando un filtro está activo */
+    .filter-active {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+</style>
 {% endblock %}

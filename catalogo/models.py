@@ -99,6 +99,33 @@ class Producto(models.Model):
             
         # Si no hay imágenes, devolver un placeholder
         return "https://via.placeholder.com/300x200?text=Sin+imagen"
+    
+    def get_thumbnail_url(self):
+        """
+        Devuelve la URL de la miniatura para la tabla, con un timestamp anti-caché.
+        """
+        import time
+        timestamp = int(time.time())
+        
+        # Intentar obtener la miniatura desde la imagen principal
+        principal = self.get_imagen_principal()
+        if principal and hasattr(principal, 'thumbnail_tabla'):
+            try:
+                # Generar la URL con acceso a través de .url para verificar que exista
+                return f"{principal.thumbnail_tabla.url}?v={timestamp}"
+            except Exception:
+                pass  # Si hay error, seguir con el siguiente método
+                
+        # Si no hay miniatura específica, intentar con la imagen normal
+        if principal and principal.imagen:
+            return f"{principal.imagen.url}?v={timestamp}"
+            
+        # Si no hay imagen principal pero hay imagen en el producto
+        if self.imagen:
+            return f"{self.imagen.url}?v={timestamp}"
+        
+        # Si no hay nada, devolver un placeholder
+        return "/static/img/placeholder.png"
 
     def __str__(self):
         # Representación textual del producto
@@ -148,14 +175,15 @@ class ImagenProducto(models.Model):
     )
     
     # Miniatura para listados de productos (generada automáticamente)
-    thumbnail = ImageSpecField(
+    # Miniatura específica para DataTable (más pequeña y optimizada)
+    thumbnail_tabla = ImageSpecField(
         source='imagen',
         processors=[
-            ResizeToFill(300, 300),  # Recorta para llenar exactamente 300x300px
-            Adjust(brightness=1.05),  # Ligeramente más brillante para miniaturas
+            ResizeToFill(80, 80),  # Tamaño pequeño ideal para tablas
+            Adjust(sharpness=1.2),  # Aumentar nitidez para compensar el tamaño reducido
         ],
         format='JPEG',
-        options={'quality': 75}  # Menor calidad para miniaturas (ahorra espacio)
+        options={'quality': 70}  # Calidad menor para reducir el tamaño
     )
     
     # Versión optimizada para el carrusel

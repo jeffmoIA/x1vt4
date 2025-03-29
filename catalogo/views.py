@@ -20,9 +20,17 @@ def es_admin(user):
 @login_required
 @user_passes_test(es_admin)
 def admin_lista_productos(request):
-    productos = Producto.objects.all().order_by('-fecha_creacion')
+    """
+    Vista para que los administradores gestionen productos con filtros
+    por categoría y marca.
+    """
+    # Obtener listas para los filtros
+    categorias = Categoria.objects.all().order_by('nombre')
+    marcas = Marca.objects.all().order_by('nombre')
+    
     return render(request, 'catalogo/admin/lista_productos.html', {
-        'productos': productos
+        'categorias': categorias,
+        'marcas': marcas
     })
 
 # Crear nuevo producto
@@ -309,8 +317,8 @@ def productos_por_marca(request, marca_id):
 @user_passes_test(es_admin)
 def admin_productos_data(request):
     """
-    Vista para procesar solicitudes AJAX de DataTables y devolver datos de productos paginados
-    con imágenes que se actualizan correctamente.
+    Vista para procesar solicitudes AJAX de DataTables y devolver datos de productos 
+    paginados con soporte para filtrado por categoría y marca.
     """
     import time
     
@@ -321,9 +329,14 @@ def admin_productos_data(request):
         length = int(request.POST.get('length', 10))  # Cantidad de registros a mostrar
         search_value = request.POST.get('search[value]', '')  # Valor de búsqueda
         
+        # Parámetros de filtros personalizados
+        categoria_id = request.POST.get('categoria_id', '')
+        marca_id = request.POST.get('marca_id', '')
+        disponibilidad = request.POST.get('disponibilidad', '')
+        
         # Configuración de orden
-        order_column_index = request.POST.get('order[0][column]', '1')  # Índice de columna para ordenar
-        order_dir = request.POST.get('order[0][dir]', 'asc')  # Dirección (asc/desc)
+        order_column_index = request.POST.get('order[0][column]', '1')
+        order_dir = request.POST.get('order[0][dir]', 'asc')
         
         # Mapeo de índices de columna a campos de la base de datos
         column_mapping = {
@@ -345,6 +358,16 @@ def admin_productos_data(request):
         # Consulta base - todos los productos con sus relaciones
         queryset = Producto.objects.all().select_related('categoria', 'marca').prefetch_related('imagenes')
         
+        # Aplicar filtros personalizados
+        if categoria_id:
+            queryset = queryset.filter(categoria_id=categoria_id)
+            
+        if marca_id:
+            queryset = queryset.filter(marca_id=marca_id)
+            
+        if disponibilidad in ['0', '1']:
+            queryset = queryset.filter(disponible=(disponibilidad == '1'))
+        
         # Filtrar por término de búsqueda si existe
         if search_value:
             queryset = queryset.filter(
@@ -361,27 +384,11 @@ def admin_productos_data(request):
         # Ordenar y paginar los resultados
         queryset = queryset.order_by(order_column)[start:start + length]
         
-        # Generar timestamp único por solicitud para evitar cachés
-        timestamp = int(time.time() * 1000)
-        
         # Preparar los datos para la respuesta
         data = []
-        for i, producto in enumerate(queryset):
-            # Intentar obtener la imagen principal desde las relaciones
-            imagen_url = None
-            
-            # 1. Buscar primero en las imágenes relacionadas (nuevo método)
-            imagen_principal = producto.get_imagen_principal()
-            if imagen_principal and hasattr(imagen_principal, 'imagen') and imagen_principal.imagen:
-                imagen_url = f"{imagen_principal.imagen.url}?v={timestamp}-{producto.id}"
-            
-            # 2. Si no hay imagen principal, buscar en el campo imagen del producto
-            elif producto.imagen:
-                imagen_url = f"{producto.imagen.url}?v={timestamp}-{producto.id}"
-            
-            # 3. Si no hay ninguna imagen, usar un placeholder
-            else:
-                imagen_url = '/static/img/placeholder.png'
+        for producto in queryset:
+            # Obtener URL de la miniatura optimizada
+            thumbnail_url = producto.get_thumbnail_url()
             
             # Estado de disponibilidad formateado como HTML
             if producto.disponible:
@@ -392,6 +399,16 @@ def admin_productos_data(request):
             # URL de las acciones
             editar_url = reverse('catalogo:editar_producto', args=[producto.id])
             eliminar_url = reverse('catalogo:eliminar_producto', args=[producto.id])
+            
+            # Agregar HTML para previsualización de imagen más grande al hacer hover
+            imagen_html = f'''
+            <div class="thumbnail-container" style="position: relative;">
+                <img src="{thumbnail_url}" alt="{producto.nombre}" 
+                     width="60" height="60" class="img-thumbnail product-thumbnail"
+                     style="object-fit: cover;" 
+                     data-bs-toggle="tooltip" title="{producto.nombre}">
+            </div>
+            '''
             
             # Botones de acción
             acciones_html = f'''
@@ -407,7 +424,7 @@ def admin_productos_data(request):
             
             # Agregar el producto a la lista de datos
             data.append({
-                'imagen': f'<img src="{imagen_url}" alt="{producto.nombre}" width="50" height="50" style="object-fit: cover;">',
+                'imagen': imagen_html,
                 'nombre': producto.nombre,
                 'precio': f'${producto.precio}',
                 'categoria': producto.categoria.nombre,
