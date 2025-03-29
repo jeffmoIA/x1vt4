@@ -26,7 +26,22 @@ SECRET_KEY = 'django-insecure-kudl3o#czu*ez4_p6h86_6dod@8fr$zc3h@y9t6t&cwgoeu#wt
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
 ALLOWED_HOSTS = []
 
 # Configuración para archivos de medios
@@ -53,6 +68,8 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_bootstrap5',
     'django_filters',
+    'imagekit',
+    'django_cleanup',
     
 ]
 MIDDLEWARE = [

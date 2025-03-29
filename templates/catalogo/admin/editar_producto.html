@@ -1,5 +1,5 @@
 {% extends 'base/base.html' %}
-{% load crispy_forms_tags %}  <!-- Añade esta línea -->
+{% load crispy_forms_tags %}
 
 {% block title %}{{ accion }} Producto{% endblock %}
 
@@ -12,18 +12,18 @@
                     <h4 class="mb-0">{{ accion }} Producto</h4>
                 </div>
                 <div class="card-body">
-                    <form method="post" enctype="multipart/form-data" novalidate>
+                    <form method="post" enctype="multipart/form-data" novalidate id="producto-form">
                         {% csrf_token %}
                         
                         <!-- Información básica del producto -->
-                        {{ form|crispy }}  <!-- Reemplaza la sección del formulario principal -->
+                        {{ form|crispy }}
                         
                         <!-- Gestión de tallas -->
                         <h5 class="mt-4 mb-3">Tallas disponibles</h5>
                         <div class="card mb-4">
                             <div class="card-body">
-                                {{ formset.management_form }}
-                                
+                                <!-- Renderizado explícito del management_form -->
+                                {{ talla_formset.management_form }}
                                 <table class="table table-borderless">
                                     <thead>
                                         <tr>
@@ -34,7 +34,7 @@
                                         </tr>
                                     </thead>
                                     <tbody id="tallas-container">
-                                        {% for talla_form in formset %}
+                                        {% for talla_form in talla_formset %}
                                             <tr class="talla-form">
                                                 <td>
                                                     {{ talla_form.id }}
@@ -43,7 +43,7 @@
                                                 <td>{{ talla_form.disponible|as_crispy_field }}</td>
                                                 <td>{{ talla_form.stock|as_crispy_field }}</td>
                                                 <td>
-                                                    {% if formset.can_delete %}
+                                                    {% if talla_formset.can_delete %}
                                                         {{ talla_form.DELETE|as_crispy_field }}
                                                     {% endif %}
                                                 </td>
@@ -57,67 +57,71 @@
                                 </button>
                             </div>
                         </div>
+                        
+                        <!-- Gestión de imágenes -->
                         <h5 class="mt-4 mb-3">Imágenes del producto</h5>
-                            <div class="card mb-4">
-                                <div class="card-body">
-                                    {{ imagen_formset.management_form }}
-                                    
-                                    <div class="row" id="imagenes-container">
-                                        {% for imagen_form in imagen_formset %}
-                                            <div class="col-md-4 mb-3 imagen-form">
-                                                <div class="card h-100">
-                                                    <div class="card-body">
-                                                        {{ imagen_form.id }}
-                                                        
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Imagen</label>
-                                                            {{ imagen_form.imagen }}
-                                                            {% if imagen_form.instance.pk and imagen_form.instance.imagen %}
-                                                                <div class="mt-2">
-                                                                    <img src="{{ imagen_form.instance.imagen.url }}" class="img-thumbnail" style="max-height: 100px;" alt="{{ imagen_form.instance.titulo|default:'' }}">
-                                                                </div>
-                                                            {% endif %}
-                                                        </div>
-                                                        
-                                                        <div class="row">
-                                                            <div class="col-md-6 mb-3">
-                                                                <label class="form-label">Orden</label>
-                                                                {{ imagen_form.orden }}
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <div class="form-check mt-4">
-                                                                    {{ imagen_form.es_principal }}
-                                                                    <label class="form-check-label" for="{{ imagen_form.es_principal.id_for_label }}">
-                                                                        Imagen principal
-                                                                    </label>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Título (opcional)</label>
-                                                            {{ imagen_form.titulo }}
-                                                        </div>
-                                                        
-                                                        {% if imagen_formset.can_delete %}
-                                                            <div class="form-check">
-                                                                {{ imagen_form.DELETE }}
-                                                                <label class="form-check-label text-danger" for="{{ imagen_form.DELETE.id_for_label }}">
-                                                                    Eliminar esta imagen
-                                                                </label>
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                {{ imagen_formset.management_form }}
+                                
+                                <div class="row" id="imagenes-container">
+                                    {% for imagen_form in imagen_formset %}
+                                        <div class="col-md-4 mb-3 imagen-form">
+                                            <div class="card h-100 {% if imagen_form.instance.es_principal %}border-primary{% endif %}">
+                                                <div class="card-body">
+                                                    {{ imagen_form.id }}
+                                                    
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Imagen</label>
+                                                        {{ imagen_form.imagen }}
+                                                        {% if imagen_form.instance.pk and imagen_form.instance.imagen %}
+                                                            <div class="mt-2">
+                                                                <img src="{{ imagen_form.instance.imagen.url }}" class="img-thumbnail" style="max-height: 100px;" alt="{{ imagen_form.instance.titulo|default:'' }}">
                                                             </div>
                                                         {% endif %}
                                                     </div>
+                                                    
+                                                    <div class="row">
+                                                        <div class="col-md-6 mb-3">
+                                                            <label class="form-label">Orden</label>
+                                                            {{ imagen_form.orden }}
+                                                        </div>
+                                                        <div class="col-md-6 mb-3">
+                                                            <div class="form-check mt-4">
+                                                                {{ imagen_form.es_principal.label_tag }}
+                                                                <input type="checkbox" name="{{ imagen_form.es_principal.html_name }}" 
+                                                                       id="{{ imagen_form.es_principal.id_for_label }}"
+                                                                       class="form-check-input principal-checkbox"
+                                                                       {% if imagen_form.instance.es_principal %}checked{% endif %}>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Título (opcional)</label>
+                                                        {{ imagen_form.titulo }}
+                                                    </div>
+                                                    
+                                                    {% if imagen_formset.can_delete %}
+                                                        <div class="form-check">
+                                                            {{ imagen_form.DELETE }}
+                                                            <label class="form-check-label text-danger" for="{{ imagen_form.DELETE.id_for_label }}">
+                                                                Eliminar esta imagen
+                                                            </label>
+                                                        </div>
+                                                    {% endif %}
                                                 </div>
                                             </div>
-                                        {% endfor %}
-                                    </div>
-                                    
-                                    <button type="button" class="btn btn-outline-primary btn-sm mt-3" id="add-imagen">
-                                        <i class="fas fa-plus"></i> Añadir otra imagen
-                                    </button>
+                                        </div>
+                                    {% endfor %}
                                 </div>
-                            </div>                            
+                                
+                                <button type="button" class="btn btn-outline-primary btn-sm mt-3" id="add-imagen">
+                                    <i class="fas fa-plus"></i> Añadir otra imagen
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div class="d-flex justify-content-between">
                             <a href="{% url 'catalogo:admin_lista_productos' %}" class="btn btn-secondary">Cancelar</a>
                             <button type="submit" class="btn btn-primary">Guardar producto</button>
@@ -129,89 +133,187 @@
     </div>
 </div>
 
-<!-- JavaScript para añadir dinámicamente más tallas (sin cambios) -->
+<!-- JavaScript unificado y corregido -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Código para las tallas (existente)
-        const addTallaButton = document.getElementById('add-talla');
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // ===== Validación del formulario al enviar =====
+    const form = document.getElementById('producto-form');
+    form.addEventListener('submit', function(event) {
+        
+        
+        // Verificar que el management form de tallas tenga valores
         const tallasTotal = document.getElementById('id_tallas-TOTAL_FORMS');
-        const tallasContainer = document.getElementById('tallas-container');
-    
-        if (addTallaButton) {
-            addTallaButton.addEventListener('click', function() {
-                const formCount = parseInt(tallasTotal.value);
-                const forms = document.getElementsByClassName('talla-form');
-                const firstForm = forms[0];
-                const newForm = firstForm.cloneNode(true);
-                
-                updateElementAttributes(newForm, 'id', 'tallas', formCount);
-                updateElementAttributes(newForm, 'name', 'tallas', formCount);
-                
-                const inputs = newForm.querySelectorAll('input[type="text"], input[type="number"]');
-                inputs.forEach(input => {
-                    input.value = '';
-                });
-                
-                const checkboxes = newForm.querySelectorAll('input[type="checkbox"]');
-                checkboxes.forEach(checkbox => {
-                    checkbox.checked = false;
-                });
-                
-                tallasContainer.appendChild(newForm);
-                tallasTotal.value = formCount + 1;
-            });
+        if (!tallasTotal.value || tallasTotal.value === '') {
+            
+            const tallasContainer = document.getElementById('tallas-container');
+            const numTallas = tallasContainer.querySelectorAll('.talla-form').length;
+            tallasTotal.value = numTallas || '0';
         }
         
-        // Nuevo código para las imágenes
-        const addImagenButton = document.getElementById('add-imagen');
-        const imagenesTotal = document.getElementById('id_imagenes-TOTAL_FORMS');
-        const imagenesContainer = document.getElementById('imagenes-container');
-    
-        if (addImagenButton) {
-            addImagenButton.addEventListener('click', function() {
-                const formCount = parseInt(imagenesTotal.value);
-                const forms = document.getElementsByClassName('imagen-form');
-                const firstForm = forms[0];
-                const newForm = firstForm.cloneNode(true);
-                
-                updateElementAttributes(newForm, 'id', 'imagenes', formCount);
-                updateElementAttributes(newForm, 'name', 'imagenes', formCount);
-                
-                // Limpiar valores
-                const inputs = newForm.querySelectorAll('input[type="text"], input[type="number"], input[type="file"]');
-                inputs.forEach(input => {
-                    input.value = '';
-                });
-                
-                const checkboxes = newForm.querySelectorAll('input[type="checkbox"]');
-                checkboxes.forEach(checkbox => {
-                    checkbox.checked = false;
-                });
-                
-                // Eliminar imagen previa si existe
-                const imgPreview = newForm.querySelector('img');
-                if (imgPreview) {
-                    imgPreview.parentNode.remove();
-                }
-                
-                imagenesContainer.appendChild(newForm);
-                imagenesTotal.value = formCount + 1;
-            });
-        }
+        // Verificar imágenes seleccionadas (opcional)
+        const imagenInputs = document.querySelectorAll('input[type="file"]');
+        let hasSelectedImages = false;
         
-        // Función mejorada para actualizar atributos
-        function updateElementAttributes(element, attributeName, prefix, formCount) {
-            const elements = element.querySelectorAll(`[${attributeName}*="${prefix}-"]`);
-            elements.forEach(el => {
-                const attribute = el.getAttribute(attributeName);
-                if (attribute) {
-                    el.setAttribute(
-                        attributeName, 
-                        attribute.replace(new RegExp(`${prefix}-\\d+`), `${prefix}-${formCount}`)
-                    );
-                }
-            });
+        imagenInputs.forEach(input => {
+            if (input.files.length > 0) {
+                hasSelectedImages = true;
+            }
+        });
+        
+        if (!hasSelectedImages) {
+            console.log('No se han seleccionado imágenes nuevas.');
         }
     });
-    </script>
+    
+    // ===== Gestión de tallas =====
+    const addTallaButton = document.getElementById('add-talla');
+    const tallasTotal = document.getElementById('id_tallas-TOTAL_FORMS');
+    const tallasContainer = document.getElementById('tallas-container');
+
+    if (addTallaButton && tallasContainer) {
+        addTallaButton.addEventListener('click', function() {
+            const forms = document.getElementsByClassName('talla-form');
+            
+            if (forms.length === 0) {
+                console.error("No hay formularios de talla para clonar");
+                return;
+            }
+            
+            const formCount = parseInt(tallasTotal.value || '0');
+            const firstForm = forms[0];
+            const newForm = firstForm.cloneNode(true);
+            
+            // Actualizar IDs y nombres
+            updateFormAttributes(newForm, 'tallas', formCount);
+            
+            // Limpiar valores
+            const inputs = newForm.querySelectorAll('input[type="text"], input[type="number"]');
+            inputs.forEach(input => {
+                input.value = '';
+            });
+            
+            const checkboxes = newForm.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            
+            // Añadir al DOM
+            tallasContainer.appendChild(newForm);
+            
+            // IMPORTANTE: Actualizar el contador
+            tallasTotal.value = (formCount + 1).toString();
+        });
+    }
+    
+    // ===== Gestión de imágenes =====
+    const addImagenButton = document.getElementById('add-imagen');
+    const imagenesTotal = document.getElementById('id_imagenes-TOTAL_FORMS');
+    const imagenesContainer = document.getElementById('imagenes-container');
+
+    if (addImagenButton && imagenesContainer) {
+        addImagenButton.addEventListener('click', function() {
+            const forms = document.getElementsByClassName('imagen-form');
+            
+            if (forms.length === 0) {
+                console.error("No hay formularios de imagen para clonar");
+                return;
+            }
+            
+            const formCount = parseInt(imagenesTotal.value || '0');
+            const firstForm = forms[0];
+            const newForm = firstForm.cloneNode(true);
+            
+            // Actualizar IDs y nombres
+            updateFormAttributes(newForm, 'imagenes', formCount);
+            
+            // Limpiar valores
+            newForm.querySelectorAll('input[type="text"], input[type="number"], input[type="file"]')
+                .forEach(input => input.value = '');
+            
+            newForm.querySelectorAll('input[type="checkbox"]')
+                .forEach(checkbox => checkbox.checked = false);
+            
+            // Eliminar imagen previa
+            const imgPreview = newForm.querySelector('img');
+            if (imgPreview && imgPreview.parentNode) {
+                imgPreview.parentNode.remove();
+            }
+            
+            // Quitar borde de imagen principal
+            newForm.querySelector('.card').classList.remove('border-primary');
+            
+            // Añadir al DOM
+            imagenesContainer.appendChild(newForm);
+            
+            // Actualizar contador
+            imagenesTotal.value = (formCount + 1).toString();
+            
+            // Actualizar handlers para imagen principal
+            setupPrincipalImageHandlers();
+        });
+    }
+    
+    // ===== Gestión de imágenes principales =====
+    function setupPrincipalImageHandlers() {
+        const principalCheckboxes = document.querySelectorAll('.principal-checkbox');
+        
+        principalCheckboxes.forEach(checkbox => {
+            // Eliminar handler previo (evitar duplicación)
+            checkbox.removeEventListener('change', handlePrincipalCheckboxChange);
+            // Añadir nuevo handler
+            checkbox.addEventListener('change', handlePrincipalCheckboxChange);
+        });
+    }
+    
+    function handlePrincipalCheckboxChange() {
+        if (this.checked) {
+            // Desmarcar otros checkboxes
+            document.querySelectorAll('.principal-checkbox').forEach(cb => {
+                if (cb !== this) cb.checked = false;
+            });
+            
+            // Resaltar visualmente la imagen principal
+            const forms = document.querySelectorAll('.imagen-form');
+            forms.forEach(form => {
+                form.querySelector('.card').classList.remove('border-primary');
+            });
+            
+            const currentForm = this.closest('.imagen-form');
+            if (currentForm) {
+                currentForm.querySelector('.card').classList.add('border-primary');
+            }
+        }
+    }
+    
+    // Ejecutar setup de imágenes principales al cargar
+    setupPrincipalImageHandlers();
+    
+    // ===== Función para actualizar atributos de formularios =====
+    function updateFormAttributes(element, prefix, index) {
+        // Actualizar atributos id
+        element.querySelectorAll(`[id^="id_${prefix}-"]`).forEach(el => {
+            const oldId = el.id;
+            const newId = oldId.replace(new RegExp(`${prefix}-\\d+`), `${prefix}-${index}`);
+            el.id = newId;
+        });
+        
+        // Actualizar atributos name
+        element.querySelectorAll(`[name^="${prefix}-"]`).forEach(el => {
+            const oldName = el.name;
+            const newName = oldName.replace(new RegExp(`${prefix}-\\d+`), `${prefix}-${index}`);
+            el.name = newName;
+        });
+        
+        // Actualizar atributos for en labels
+        element.querySelectorAll('label[for^="id_${prefix}-"]').forEach(label => {
+            if (label.htmlFor) {
+                const oldFor = label.htmlFor;
+                const newFor = oldFor.replace(new RegExp(`${prefix}-\\d+`), `${prefix}-${index}`);
+                label.htmlFor = newFor;
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

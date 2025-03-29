@@ -1,15 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from imagekit.models import ProcessedImageField, ImageSpecField
+from imagekit.processors import ResizeToFill, ResizeToFit, Adjust
+from django.utils import timezone
 
-def validate_image_size(image):
-    """
-    Valida que el tamaño de la imagen no exceda 5MB
-    """
-    # Limitar el tamaño de la imagen a 5MB
-    max_size = 5 * 1024 * 1024  # 5MB en bytes
-    if image.size > max_size:
-        raise ValidationError(f'La imagen es demasiado grande. El tamaño máximo permitido es 5MB.')
+def get_default_date():
+    """Función que devuelve la fecha y hora actual como valor predeterminado"""
+    return timezone.now()
     
 class Categoria(models.Model):
      # Campo para el nombre de la categoría (motos, equipamiento, accesorios, etc.)
@@ -120,35 +118,110 @@ class TallaProducto(models.Model):
     def __str__(self):
         return f"{self.producto.nombre} - Talla {self.talla}"
 
-# Añadir el nuevo modelo para imágenes múltiples
+
+def validate_image_size(image):
+    """
+    Valida que el tamaño de la imagen no exceda 5MB
+    """
+    # Limitar el tamaño de la imagen a 5MB
+    max_size = 5 * 1024 * 1024  # 5MB en bytes
+    if image.size > max_size:
+        raise ValidationError(f'La imagen es demasiado grande. El tamaño máximo permitido es 5MB.')
+
 class ImagenProducto(models.Model):
     # Relación con el producto
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='imagenes')
     
-    # Campo para la imagen con validación de tamaño
-    imagen = models.ImageField(
+    # Campo para la imagen principal procesada automáticamente
+    imagen = ProcessedImageField(
         upload_to='productos/imagenes/',
-        validators=[validate_image_size]
+        processors=[
+            ResizeToFit(1200, 1200),  # Redimensiona manteniendo la proporción
+            Adjust(contrast=1.1, sharpness=1.1),  # Mejora ligeramente el contraste y nitidez
+        ],
+        format='JPEG',
+        options={'quality': 85},  # Calidad de compresión (85% es un buen balance)
+        validators=[validate_image_size],
+        help_text="Tamaño máximo: 5MB. Se redimensionará automáticamente."
+    )
+    
+    # Miniatura para listados de productos (generada automáticamente)
+    thumbnail = ImageSpecField(
+        source='imagen',
+        processors=[
+            ResizeToFill(300, 300),  # Recorta para llenar exactamente 300x300px
+            Adjust(brightness=1.05),  # Ligeramente más brillante para miniaturas
+        ],
+        format='JPEG',
+        options={'quality': 75}  # Menor calidad para miniaturas (ahorra espacio)
+    )
+    
+    # Versión optimizada para el carrusel
+    carrusel = ImageSpecField(
+        source='imagen',
+        processors=[
+            ResizeToFit(800, 600),  # Tamaño ideal para el carrusel
+        ],
+        format='JPEG',
+        options={'quality': 80}
+    )
+    
+    # Versión pequeña para las miniaturas de navegación
+    miniatura_nav = ImageSpecField(
+        source='imagen',
+        processors=[
+            ResizeToFill(100, 100),  # Tamaño fijo para navegación uniforme
+        ],
+        format='JPEG',
+        options={'quality': 70}
     )
     
     # Orden de visualización de la imagen
-    orden = models.PositiveIntegerField(default=1)
+    orden = models.PositiveIntegerField(
+        default=0, 
+        help_text="Orden de aparición en la galería (menor número = aparece primero)"
+    )
     
-    # Indicar si es la imagen principal
-    es_principal = models.BooleanField(default=False)
+    # Indicador de imagen principal
+    es_principal = models.BooleanField(
+        default=False, 
+        help_text="Marcar como imagen principal del producto"
+    )
     
-    # Título opcional para la imagen (SEO)
-    titulo = models.CharField(max_length=200, blank=True, null=True)
+    # Título para SEO y accesibilidad
+    titulo = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True, 
+        help_text="Título descriptivo para SEO y accesibilidad"
+    )
+    
+    # Campos de metadatos para administración
+    fecha_creacion = models.DateTimeField(
+    auto_now_add=True,
+    help_text="Fecha de creación de la imagen"
+    )   
+    ultima_modificacion = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['orden']  # Ordenar por el campo 'orden'
+        ordering = ['orden', '-es_principal']  # Ordenar primero por orden, luego principal
         verbose_name = "Imagen de producto"
         verbose_name_plural = "Imágenes de productos"
+        constraints = [
+            # Limitar a 10 imágenes por producto a nivel de base de datos
+            models.UniqueConstraint(
+                fields=['producto', 'orden'],
+                name='unique_product_image_order'
+            ),
+        ]
     
     def __str__(self):
-        return f"Imagen {self.orden} de {self.producto.nombre}"
+        """Representación legible del objeto"""
+        principal_str = " (Principal)" if self.es_principal else ""
+        return f"Imagen {self.orden}{principal_str} de {self.producto.nombre}"
     
     def save(self, *args, **kwargs):
+        """Método personalizado para guardar, con lógica para imagen principal"""
         # Si esta imagen se marca como principal, quitar el flag de las demás
         if self.es_principal:
             ImagenProducto.objects.filter(
@@ -156,18 +229,24 @@ class ImagenProducto(models.Model):
                 es_principal=True
             ).exclude(id=self.id or 0).update(es_principal=False)
         
-        # Si no hay imágenes para este producto o no hay ninguna principal,
-        # marcar esta como principal automáticamente
-        elif not self.id:  # Si es un objeto nuevo
-            if not ImagenProducto.objects.filter(producto=self.producto).exists() or \
-               not ImagenProducto.objects.filter(producto=self.producto, es_principal=True).exists():
-                self.es_principal = True
+        # Si es la primera imagen para el producto, marcarla como principal
+        elif not self.id and not ImagenProducto.objects.filter(producto=self.producto).exists():
+            self.es_principal = True
+            
+        # Si no hay ninguna imagen principal, marcar esta como principal
+        elif not ImagenProducto.objects.filter(producto=self.producto, es_principal=True).exists():
+            self.es_principal = True
+        
+        # Controlar que no haya más de 10 imágenes por producto
+        if not self.id and ImagenProducto.objects.filter(producto=self.producto).count() >= 10:
+            raise ValidationError("No se pueden añadir más de 10 imágenes por producto.")
         
         super().save(*args, **kwargs)
-        
-def validate_image_size(image):
-    # Limitar el tamaño de la imagen a 5MB
-    max_size = 5 * 1024 * 1024  # 5MB en bytes
-    if image.size > max_size:
-        raise ValidationError(f'La imagen es demasiado grande. El tamaño máximo permitido es 5MB.')
-
+    
+    def get_thumbnail_url(self):
+        """Método auxiliar para obtener la URL de la miniatura"""
+        return self.thumbnail.url if hasattr(self, 'thumbnail') else self.imagen.url
+    
+    def get_carrusel_url(self):
+        """Método auxiliar para obtener la URL de la imagen de carrusel"""
+        return self.carrusel.url if hasattr(self, 'carrusel') else self.imagen.url

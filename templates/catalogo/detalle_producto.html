@@ -35,33 +35,48 @@
         </div>
 
        <!-- Carrusel de imágenes principal en el centro -->
-        <div class="col-md-5">
+       <div class="col-md-5">
             <div class="card border-0">
-                {% if producto.imagenes.all %}
+                {% if imagenes %}
                     <div id="productoCarousel" class="carousel slide" data-bs-ride="false">
                         <div class="carousel-inner">
-                            {% for imagen in producto.imagenes.all|dictsort:"orden" %}
+                            {% for imagen in imagenes %}
                                 <div class="carousel-item {% if imagen.es_principal %}active{% endif %}">
                                     <img src="{{ imagen.imagen.url }}" class="d-block w-100" 
-                                        alt="{{ imagen.titulo|default:producto.nombre }}">
+                                        alt="{{ imagen.titulo|default:producto.nombre }}"
+                                        style="max-height: 400px; object-fit: contain;">
                                 </div>
                             {% endfor %}
                         </div>
-                        {% if producto.imagenes.count > 1 %}
+                        {% if imagenes|length > 1 %}
                             <button class="carousel-control-prev" type="button" data-bs-target="#productoCarousel" data-bs-slide="prev">
-                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="carousel-control-prev-icon bg-dark rounded-circle p-2" aria-hidden="true"></span>
                                 <span class="visually-hidden">Anterior</span>
                             </button>
                             <button class="carousel-control-next" type="button" data-bs-target="#productoCarousel" data-bs-slide="next">
-                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="carousel-control-next-icon bg-dark rounded-circle p-2" aria-hidden="true"></span>
                                 <span class="visually-hidden">Siguiente</span>
                             </button>
+                            
+                            <!-- Indicadores de diapositivas -->
+                            <div class="carousel-indicators position-static mt-2">
+                                {% for imagen in imagenes %}
+                                    <button type="button" data-bs-target="#productoCarousel" 
+                                            data-bs-slide-to="{{ forloop.counter0 }}" 
+                                            class="{% if imagen.es_principal %}active{% endif %}"
+                                            aria-current="{% if imagen.es_principal %}true{% else %}false{% endif %}"
+                                            aria-label="Diapositiva {{ forloop.counter }}">
+                                    </button>
+                                {% endfor %}
+                            </div>
                         {% endif %}
                     </div>
                 {% elif producto.imagen %}
-                    <img id="main-image" src="{{ producto.imagen.url }}" class="card-img-top img-fluid" alt="{{ producto.nombre }}">
+                    <img id="main-image" src="{{ producto.imagen.url }}" class="card-img-top img-fluid" 
+                        alt="{{ producto.nombre }}" style="max-height: 400px; object-fit: contain;">
                 {% else %}
-                    <img src="https://via.placeholder.com/600x400?text=Sin+imagen" class="card-img-top img-fluid" alt="{{ producto.nombre }}">
+                    <img src="https://via.placeholder.com/600x400?text=Sin+imagen" class="card-img-top img-fluid" 
+                        alt="{{ producto.nombre }}">
                 {% endif %}
             </div>
         </div>

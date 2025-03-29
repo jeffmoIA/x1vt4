@@ -6,7 +6,7 @@ class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
         fields = ['nombre', 'descripcion', 'precio', 'categoria', 'marca', 
-                 'stock', 'disponible', 'imagen']
+                 'stock', 'disponible']
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
@@ -22,12 +22,23 @@ class ProductoForm(forms.ModelForm):
 TallaFormSet = inlineformset_factory(
     Producto, TallaProducto, 
     fields=('talla', 'disponible', 'stock'),
-    extra=3,
-    can_delete=True,
+    extra=1,  # Mostrar un formulario vacío adicional
+    can_delete=True,  # Permitir eliminar tallas
+    min_num=0,  # Mínimo número de formularios (0 = opcional)
+    validate_min=False,  # No validar el mínimo
+    max_num=15,  # Máximo razonable de tallas
+    validate_max=True,  # Validar el máximo
     widgets={
-        'talla': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: S, M, 42, 54'}),
+        'talla': forms.TextInput(attrs={
+            'class': 'form-control', 
+            'placeholder': 'Ej: S, M, L, XL, 42, 44'
+        }),
         'disponible': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        'stock': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+        'stock': forms.NumberInput(attrs={
+            'class': 'form-control', 
+            'min': '0',
+            'placeholder': 'Cantidad disponible'
+        }),
     }
 )
 

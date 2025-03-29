@@ -66,16 +66,45 @@ def editar_producto(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id)
     
     if request.method == 'POST':
-        form = ProductoForm(request.POST, instance=producto)
+        # Datos para debug
+        print("Management Form Fields en POST:")
+        for key in request.POST:
+            if 'tallas-' in key and 'FORMS' in key:
+                print(f"  {key}: '{request.POST[key]}'")
+        
+        # Procesar el formulario
+        form = ProductoForm(request.POST, request.FILES, instance=producto)
         talla_formset = TallaFormSet(request.POST, instance=producto, prefix='tallas')
         imagen_formset = ImagenFormSet(request.POST, request.FILES, instance=producto, prefix='imagenes')
         
-        if form.is_valid() and talla_formset.is_valid() and imagen_formset.is_valid():
-            form.save()
+        # Validar todos los formularios
+        form_valid = form.is_valid()
+        talla_valid = talla_formset.is_valid()
+        imagen_valid = imagen_formset.is_valid()
+        
+        print(f"Formulario principal válido: {form_valid}")
+        print(f"Formset de tallas válido: {talla_valid}")
+        print(f"Formset de imágenes válido: {imagen_valid}")
+        
+        if form_valid and talla_valid and imagen_valid:
+            # Guardar todo
+            producto = form.save()
             talla_formset.save()
             imagen_formset.save()
-            messages.success(request, 'Producto actualizado exitosamente')
+            messages.success(request, 'Producto actualizado completamente')
             return redirect('catalogo:admin_lista_productos')
+        else:
+            # Mostrar errores específicos
+            if not form_valid:
+                messages.error(request, 'Hay errores en la información básica del producto')
+            if not talla_valid:
+                print(f"Errores en tallas: {talla_formset.errors}")
+                print(f"Errores no form: {talla_formset.non_form_errors()}")
+                messages.error(request, 'Hay errores en las tallas')
+            if not imagen_valid:
+                print(f"Errores en imágenes: {imagen_formset.errors}")
+                print(f"Errores no form: {imagen_formset.non_form_errors()}")
+                messages.error(request, 'Hay errores en las imágenes')
     else:
         form = ProductoForm(instance=producto)
         talla_formset = TallaFormSet(instance=producto, prefix='tallas')
@@ -187,7 +216,7 @@ def lista_productos(request):
     })
 
 def detalle_producto(request, producto_id):
-    # Obtener un producto específico por su ID
+    # Obtener un producto específico por su ID con todas sus relaciones
     producto = get_object_or_404(
         Producto.objects.select_related('categoria', 'marca')
                         .prefetch_related('imagenes', 'tallas'),
@@ -195,14 +224,18 @@ def detalle_producto(request, producto_id):
         disponible=True
     )
     
-    # Ordenar las imágenes por el campo orden
-    imagenes = producto.imagenes.all().order_by('orden')
+    # Obtener las imágenes ordenadas (primero la principal, luego por orden)
+    # Limitar a máximo 10 imágenes para optimizar rendimiento
+    imagenes = list(producto.imagenes.all().order_by('-es_principal', 'orden')[:10])
     
-    # Si no hay imagen principal, usar la primera como principal
-    if imagenes.exists() and not imagenes.filter(es_principal=True).exists():
-        primera_imagen = imagenes.first()
-        primera_imagen.es_principal = True
-        primera_imagen.save()
+    # Si no hay imágenes, usar la imagen principal del modelo Producto
+    if not imagenes and producto.imagen:
+        # Crear un objeto tipo diccionario para mantener consistencia con la plantilla
+        imagenes = [{
+            'imagen': producto.imagen,
+            'es_principal': True,
+            'titulo': producto.nombre
+        }]
     
     # Obtener productos relacionados (misma categoría, excluyendo el actual)
     productos_relacionados = Producto.objects.filter(
