@@ -83,17 +83,19 @@ class Producto(models.Model):
         
     def get_imagen_url(self):
         """
-        Devuelve la URL de la imagen principal, o de la imagen original,
-        o una URL de placeholder si no hay imágenes.
+        Devuelve la URL de la imagen principal con un timestamp para evitar caché.
         """
+        import time
+        timestamp = int(time.time())
+        
         # Primero intentar con las imágenes nuevas
         principal = self.get_imagen_principal()
         if principal and principal.imagen:
-            return principal.imagen.url
+            return f"{principal.imagen.url}?v={timestamp}"
             
         # Luego intentar con la imagen original
         if self.imagen:
-            return self.imagen.url
+            return f"{self.imagen.url}?v={timestamp}"
             
         # Si no hay imágenes, devolver un placeholder
         return "https://via.placeholder.com/300x200?text=Sin+imagen"

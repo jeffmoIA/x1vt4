@@ -6,9 +6,17 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Administrar Productos</h1>
-        <a href="{% url 'catalogo:crear_producto' %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Nuevo Producto
-        </a>
+        <div>
+            <button type="button" class="btn btn-outline-secondary me-2" onclick="recargarTabla()">
+                <i class="fas fa-sync"></i> Actualizar tabla
+            </button>
+            <button type="button" class="btn btn-outline-info me-2" onclick="limpiarCacheImagenes()">
+                <i class="fas fa-image"></i> Refrescar imágenes
+            </button>
+            <a href="{% url 'catalogo:crear_producto' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Nuevo Producto
+            </a>
+        </div>
     </div>
     
     {% if messages %}
@@ -44,6 +52,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
 {% block extra_js %}
 <script>
     // Función para obtener el token CSRF de las cookies
@@ -62,8 +72,14 @@
         return cookieValue;
     }
 
+    // Variable global para la tabla
+    let productosTable;
+
     $(document).ready(function() {
-        $('#productos-table').DataTable({
+        console.log("Inicializando DataTable...");
+        
+        // Inicializar DataTable con configuración
+        productosTable = $('#productos-table').DataTable({
             // Configuración para procesamiento en servidor
             processing: true,
             serverSide: true,
@@ -73,6 +89,11 @@
                 // Incluir el token CSRF en la solicitud
                 headers: {
                     "X-CSRFToken": getCookie('csrftoken')
+                },
+                // Añadir un timestamp a la solicitud para evitar caché
+                data: function(d) {
+                    d._timestamp = new Date().getTime();
+                    return d;
                 }
             },
             // Definición de columnas
@@ -95,7 +116,32 @@
             // Opciones de longitud
             lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, 'Todos']]
         });
+
+        {% if messages %}
+        // Recargar la tabla para mostrar datos actualizados
+        console.log("Detectados mensajes, recargando tabla...");
+        setTimeout(function() {
+            productosTable.ajax.reload(null, false);
+            console.log("Tabla recargada");
+        }, 100); // Pequeño retraso para asegurar que la tabla está completamente inicializada
+        {% endif %}
+        
+        // Detección de errores AJAX
+        $(document).ajaxError(function(event, jqxhr, settings, thrownError) {
+            console.error('Error en petición AJAX:', thrownError);
+            console.error('Detalles:', jqxhr.status, jqxhr.responseText);
+        });
     });
+
+    // Función para recargar la tabla manualmente
+    function recargarTabla() {
+        console.log("Recargando tabla manualmente...");
+        if (productosTable) {
+            productosTable.ajax.reload(null, false);
+            console.log("Tabla recargada");
+        } else {
+            console.error("La tabla no está inicializada");
+        }
+    }
 </script>
-{% endblock %}
 {% endblock %}

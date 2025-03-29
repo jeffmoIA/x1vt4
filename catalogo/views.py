@@ -8,6 +8,7 @@ from django.urls import reverse
 from .models import Producto, Categoria, Marca, ImagenProducto
 from .forms import ProductoForm, TallaFormSet, ImagenFormSet
 from .filters import ProductoFilter
+import time
 
 # Función auxiliar para verificar si el usuario es administrador
 def es_admin(user):
@@ -82,15 +83,13 @@ def editar_producto(request, producto_id):
         talla_valid = talla_formset.is_valid()
         imagen_valid = imagen_formset.is_valid()
         
-        print(f"Formulario principal válido: {form_valid}")
-        print(f"Formset de tallas válido: {talla_valid}")
-        print(f"Formset de imágenes válido: {imagen_valid}")
-        
         if form_valid and talla_valid and imagen_valid:
             # Guardar todo
             producto = form.save()
             talla_formset.save()
             imagen_formset.save()
+            cache_buster = str(int(time.time()))
+            request.session['cache_buster'] = cache_buster
             messages.success(request, 'Producto actualizado completamente')
             return redirect('catalogo:admin_lista_productos')
         else:
@@ -98,12 +97,8 @@ def editar_producto(request, producto_id):
             if not form_valid:
                 messages.error(request, 'Hay errores en la información básica del producto')
             if not talla_valid:
-                print(f"Errores en tallas: {talla_formset.errors}")
-                print(f"Errores no form: {talla_formset.non_form_errors()}")
                 messages.error(request, 'Hay errores en las tallas')
             if not imagen_valid:
-                print(f"Errores en imágenes: {imagen_formset.errors}")
-                print(f"Errores no form: {imagen_formset.non_form_errors()}")
                 messages.error(request, 'Hay errores en las imágenes')
     else:
         form = ProductoForm(instance=producto)
@@ -279,99 +274,127 @@ def admin_productos_data(request):
     """
     Vista para procesar solicitudes AJAX de DataTables y devolver datos de productos paginados
     """
-    # Obtener los parámetros enviados por DataTables
-    draw = int(request.POST.get('draw', 1))  # Contador de solicitudes
-    start = int(request.POST.get('start', 0))  # Inicio de la paginación
-    length = int(request.POST.get('length', 10))  # Cantidad de registros a mostrar
-    search_value = request.POST.get('search[value]', '')  # Valor de búsqueda
+    import time
     
-    # Obtener columna de ordenamiento y dirección
-    order_column_index = request.POST.get('order[0][column]', 1)  # Índice de la columna a ordenar
-    order_column = request.POST.get(f'columns[{order_column_index}][data]', 'nombre')  # Nombre de la columna
-    order_dir = request.POST.get('order[0][dir]', 'asc')  # Dirección de ordenamiento
-    
-    # Convertir el índice de columna a un nombre de campo real
-    column_mapping = {
-        '0': 'id',
-        '1': 'nombre',
-        '2': 'precio',
-        '3': 'categoria__nombre',
-        '4': 'marca__nombre',
-        '5': 'stock',
-        '6': 'disponible'
-    }
-    order_column = column_mapping.get(order_column_index, 'nombre')
-    
-    # Preparar el ordenamiento
-    if order_dir == 'desc':
-        order_column = f'-{order_column}'  # Agregar un signo menos para ordenar descendentemente
-    
-    # Preparar la consulta base
-    queryset = Producto.objects.all()
-    
-    # Filtrar por término de búsqueda si existe
-    if search_value:
-        queryset = queryset.filter(
-            Q(nombre__icontains=search_value) |
-            Q(descripcion__icontains=search_value) |
-            Q(categoria__nombre__icontains=search_value) |
-            Q(marca__nombre__icontains=search_value)
-        )
-    
-    # Total de registros (sin filtrar)
-    total_records = Producto.objects.count()
-    # Total de registros (después de filtrar)
-    total_records_filtered = queryset.count()
-    
-    # Ordenar y paginar los resultados
-    queryset = queryset.order_by(order_column)[start:start + length]
-    
-    # Preparar los datos para la respuesta
-    data = []
-    for producto in queryset:
-        # URL de la imagen (o placeholder si no hay imagen)
-        imagen_url = producto.imagen.url if producto.imagen else '/static/img/placeholder.png'
+    try:
+        # Obtener los parámetros enviados por DataTables
+        draw = int(request.POST.get('draw', 1))  # Contador de solicitudes
+        start = int(request.POST.get('start', 0))  # Inicio de la paginación
+        length = int(request.POST.get('length', 10))  # Cantidad de registros a mostrar
+        search_value = request.POST.get('search[value]', '')  # Valor de búsqueda
         
-        # Estado de disponibilidad formateado como HTML
-        if producto.disponible:
-            disponible_html = '<span class="badge bg-success">Sí</span>'
-        else:
-            disponible_html = '<span class="badge bg-danger">No</span>'
+        # Configuración de orden
+        order_column_index = str(request.POST.get('order[0][column]', '1'))  # Índice como string
+        order_dir = request.POST.get('order[0][dir]', 'asc')  # Dirección (asc/desc)
         
-        # URL de las acciones
-        editar_url = reverse('catalogo:editar_producto', args=[producto.id])
-        eliminar_url = reverse('catalogo:eliminar_producto', args=[producto.id])
+        # Mapeo de índices de columna a campos de la base de datos
+        column_mapping = {
+            '0': 'id',
+            '1': 'nombre',
+            '2': 'precio',
+            '3': 'categoria__nombre',
+            '4': 'marca__nombre',
+            '5': 'stock',
+            '6': 'disponible'
+        }
+        # Obtener el nombre del campo según el índice
+        order_column = column_mapping.get(order_column_index, 'nombre')
         
-        # Botones de acción
-        acciones_html = f'''
-        <div class="btn-group" role="group">
-            <a href="{editar_url}" class="btn btn-sm btn-warning">
-                <i class="fas fa-edit"></i>
-            </a>
-            <a href="{eliminar_url}" class="btn btn-sm btn-danger">
-                <i class="fas fa-trash"></i>
-            </a>
-        </div>
-        '''
+        # Preparar el ordenamiento para orden descendente
+        if order_dir == 'desc':
+            order_column = f'-{order_column}'
         
-        # Agregar el producto a la lista de datos
-        data.append({
-            'imagen': f'<img src="{imagen_url}" alt="{producto.nombre}" width="50">',
-            'nombre': producto.nombre,
-            'precio': f'${producto.precio}',
-            'categoria': producto.categoria.nombre,
-            'marca': producto.marca.nombre,
-            'stock': producto.stock,
-            'disponible': disponible_html,
-            'acciones': acciones_html
+        # Consulta base - todos los productos
+        queryset = Producto.objects.all()
+        
+        # Filtrar por término de búsqueda si existe
+        if search_value:
+            queryset = queryset.filter(
+                Q(nombre__icontains=search_value) |
+                Q(descripcion__icontains=search_value) |
+                Q(categoria__nombre__icontains=search_value) |
+                Q(marca__nombre__icontains=search_value)
+            )
+        
+        # Contar registros para la paginación
+        total_records = Producto.objects.count()  # Total sin filtrar
+        total_records_filtered = queryset.count()  # Total después de filtrar
+        
+        # Ordenar y paginar los resultados
+        queryset = queryset.order_by(order_column)[start:start + length]
+        
+        # Generar timestamp base para evitar caché de imágenes
+        # Multiplicar por 1000 para obtener milisegundos y asegurar unicidad
+        base_timestamp = int(time.time() * 1000)
+        
+        # Preparar los datos para la respuesta
+        data = []
+        for i, producto in enumerate(queryset):
+            # Generar un timestamp único para cada producto
+            # Sumar el índice para garantizar que cada imagen tenga un timestamp diferente
+            unique_timestamp = base_timestamp + i
+            
+            # URL de la imagen con timestamp único para forzar recarga
+            if producto.imagen:
+                imagen_url = f"{producto.imagen.url}?v={unique_timestamp}"
+            else:
+                imagen_url = '/static/img/placeholder.png'
+            
+            # Estado de disponibilidad formateado como HTML
+            if producto.disponible:
+                disponible_html = '<span class="badge bg-success">Sí</span>'
+            else:
+                disponible_html = '<span class="badge bg-danger">No</span>'
+            
+            # URL de las acciones
+            editar_url = reverse('catalogo:editar_producto', args=[producto.id])
+            eliminar_url = reverse('catalogo:eliminar_producto', args=[producto.id])
+            
+            # Botones de acción
+            acciones_html = f'''
+            <div class="btn-group" role="group">
+                <a href="{editar_url}" class="btn btn-sm btn-warning">
+                    <i class="fas fa-edit"></i>
+                </a>
+                <a href="{eliminar_url}" class="btn btn-sm btn-danger">
+                    <i class="fas fa-trash"></i>
+                </a>
+            </div>
+            '''
+            
+            # Agregar el producto a la lista de datos
+            data.append({
+                'imagen': f'<img src="{imagen_url}" alt="{producto.nombre}" width="50">',
+                'nombre': producto.nombre,
+                'precio': f'${producto.precio}',
+                'categoria': producto.categoria.nombre,
+                'marca': producto.marca.nombre,
+                'stock': producto.stock,
+                'disponible': disponible_html,
+                'acciones': acciones_html
+            })
+        
+        # Preparar la respuesta JSON según el formato esperado por DataTables
+        response = {
+            'draw': draw,
+            'recordsTotal': total_records,
+            'recordsFiltered': total_records_filtered,
+            'data': data
+        }
+        
+        return JsonResponse(response)
+    
+    except Exception as e:
+        # Registrar el error para depuración
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error en admin_productos_data: {str(e)}")
+        
+        # Devolver una respuesta de error formateada para DataTables
+        return JsonResponse({
+            'draw': draw if 'draw' in locals() else 1,  # Usar 1 si draw no está definido
+            'recordsTotal': 0,
+            'recordsFiltered': 0,
+            'data': [],
+            'error': str(e)
         })
-    
-    # Preparar la respuesta JSON según el formato esperado por DataTables
-    response = {
-        'draw': draw,
-        'recordsTotal': total_records,
-        'recordsFiltered': total_records_filtered,
-        'data': data
-    }
-    
-    return JsonResponse(response)
