@@ -12,6 +12,7 @@ import time
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from .models import Marca
+import os
 
 # Función auxiliar para verificar si el usuario es administrador
 def es_admin(user):
@@ -132,77 +133,65 @@ def crear_producto(request):
 @login_required
 @user_passes_test(es_admin)
 def editar_producto(request, producto_id):
-    """
-    Vista para editar un producto existente con soporte para aplicar cambios sin redirección
-    y guardar y salir para redirigir a la lista de productos
-    """
+    """Vista para editar un producto con manejo simplificado para garantizar funcionamiento"""
     producto = get_object_or_404(Producto, id=producto_id)
     
     if request.method == 'POST':
-        # Verificar si es una solicitud de "aplicar cambios"
-        es_aplicar_cambios = request.POST.get('aplicar_cambios') == 'true'
-        # Verificar si se debe redirigir después de guardar
-        debe_redirigir = request.POST.get('redirigir') == 'true'
-        # Verificar si es una solicitud AJAX
-        es_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        # Determinar tipo de solicitud
+        es_aplicar_cambios = 'aplicar_cambios' in request.POST
+        debe_redirigir = 'redirigir' in request.POST
         
-        # Procesar el formulario
+        # Procesar formularios
         form = ProductoForm(request.POST, request.FILES, instance=producto)
         talla_formset = TallaFormSet(request.POST, instance=producto, prefix='tallas')
         imagen_formset = ImagenFormSet(request.POST, request.FILES, instance=producto, prefix='imagenes')
         
-        # Validar todos los formularios
-        form_valid = form.is_valid()
-        talla_valid = talla_formset.is_valid()
-        imagen_valid = imagen_formset.is_valid()
+        # Si los formsets son válidos, guardar
+        todos_validos = all([
+            form.is_valid(),
+            talla_formset.is_valid(),
+            imagen_formset.is_valid()
+        ])
         
-        if form_valid and talla_valid and imagen_valid:
+        if todos_validos:
             # Guardar todo
             producto = form.save()
             talla_formset.save()
             imagen_formset.save()
             
-            # Añadir un parámetro a la sesión para evitar caché de imágenes
-            cache_buster = str(int(time.time()))
-            request.session['cache_buster'] = cache_buster
+            # Manejar respuesta según tipo de solicitud
+            if es_aplicar_cambios:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Cambios aplicados correctamente'
+                    })
+                else:
+                    messages.success(request, 'Cambios aplicados correctamente')
+                    return redirect('catalogo:admin_lista_productos')
             
-            # Si es solicitud AJAX para "aplicar cambios"
-            if es_ajax and es_aplicar_cambios:
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Cambios aplicados exitosamente',
-                    'producto_id': producto.id
-                })
-            
-            # Si se debe redirigir después de guardar
-            messages.success(request, 'Producto actualizado correctamente')
             if debe_redirigir:
+                messages.success(request, 'Producto guardado correctamente')
                 return redirect('catalogo:admin_lista_productos')
-        else:
-            # Hay errores en los formularios
-            errors = []
-            if not form_valid:
-                errors.append('Hay errores en la información básica del producto')
-            if not talla_valid:
-                errors.append('Hay errores en las tallas')
-            if not imagen_valid:
-                errors.append('Hay errores en las imágenes')
             
-            # Si es solicitud AJAX para "aplicar cambios"
-            if es_ajax and es_aplicar_cambios:
+            # Por defecto, mostrar mensaje y quedarse en la página
+            messages.success(request, 'Producto actualizado correctamente')
+        else:
+            # Si hay errores, mostrar mensajes
+            messages.error(request, 'Hay errores en el formulario')
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'success': False,
-                    'error': ' '.join(errors)
+                    'error': 'Hay errores en el formulario'
                 })
-            
-            # Si no es AJAX o es para guardar y salir
-            for error in errors:
-                messages.error(request, error)
     else:
+        # Para solicitudes GET
         form = ProductoForm(instance=producto)
         talla_formset = TallaFormSet(instance=producto, prefix='tallas')
         imagen_formset = ImagenFormSet(instance=producto, prefix='imagenes')
     
+    # Renderizar plantilla
     return render(request, 'catalogo/admin/editar_producto.html', {
         'form': form,
         'talla_formset': talla_formset,

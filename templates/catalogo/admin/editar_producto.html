@@ -1,6 +1,9 @@
 {% extends 'base/base.html' %}
 {% load static %}
-
+{% block page_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/producto/imagen_fix.css' %}">
+{% endblock %}
 {% block title %}{{ accion }} Producto{% endblock %}
 {% load crispy_forms_tags %}
 
@@ -42,7 +45,7 @@
                     <h4 class="mb-0">{{ accion }} Producto</h4>
                 </div>
                 <div class="card-body">
-                    <form method="post" enctype="multipart/form-data" novalidate id="producto-form">
+                    <form method="post" enctype="multipart/form-data" id="producto-form" novalidate>
                         {% csrf_token %}
                         
                         <!-- Información básica del producto -->
@@ -71,6 +74,11 @@
                                 </button>
                             </div>
                             <div class="form-text">Selecciona la marca del producto o gestiona las marcas disponibles</div>
+                        </div>
+                        <!-- En alguna parte cercana al selector de marca, añade estos atributos de datos -->
+                        <div data-url-listar-marcas="{% url 'catalogo:listar_marcas_ajax' %}"
+                        data-url-crear-marca="{% url 'catalogo:crear_marca_ajax' %}"
+                        data-url-eliminar-marca="{% url 'catalogo:eliminar_marca_ajax' %}">
                         </div>
                         <!-- Gestión de tallas -->
                         <h5 class="mt-4 mb-3">Tallas disponibles</h5>
@@ -118,55 +126,48 @@
                             <div class="card-body">
                                 {{ imagen_formset.management_form }}
                                 
-                                <div class="row" id="imagenes-container">
+                                <!-- Contenedor de imágenes -->
+                                <div id="imagenes-container">
                                     {% for imagen_form in imagen_formset %}
-                                    <div class="col-md-4 mb-3 imagen-form">
-                                        <div class="card h-100 {% if imagen_form.instance.es_principal %}border-primary{% endif %}">
-                                            <div class="card-body">
-                                                {{ imagen_form.id }}
-                                                
-                                                <div class="mb-3">
-                                                    <label class="form-label">Imagen</label>
-                                                    {{ imagen_form.imagen }}
-                                                    {% if imagen_form.instance.pk and imagen_form.instance.imagen %}
-                                                        <div class="mt-2 position-relative image-container" data-form-id="{{ imagen_form.prefix }}-{{ forloop.counter0 }}">
-                                                            <!-- Imagen normal -->
-                                                            <img src="{{ imagen_form.instance.imagen.url }}" class="img-thumbnail product-image" 
-                                                                 alt="{{ imagen_form.instance.titulo|default:'' }}" style="max-height: 100px;">
-                                    
-                                                        </div>
-                                                    {% endif %}
+                                        <div class="imagen-form" id="imagenes-{{ forloop.counter0 }}">
+                                            {{ imagen_form.id }}
+                                            {{ imagen_form.DELETE.as_hidden }}
+                                            
+                                            {% if imagen_form.instance.pk and imagen_form.instance.imagen %}
+                                                <div class="image-preview">
+                                                    <img src="{{ imagen_form.instance.imagen.url }}" 
+                                                        alt="{{ imagen_form.instance.titulo|default:'Imagen' }}">
                                                 </div>
-                                                
-                                                <!-- Resto del formulario de imagen -->
-                                                <div class="row">
-                                                    <div class="col-md-6 mb-3">
-                                                        <label class="form-label">Orden</label>
-                                                        {{ imagen_form.orden }}
-                                                    </div>
-                                                    <div class="col-md-6 mb-3">
-                                                        <div class="form-check mt-4">
-                                                            {{ imagen_form.es_principal.label_tag }}
-                                                            <input type="checkbox" name="{{ imagen_form.es_principal.html_name }}" 
-                                                                   id="{{ imagen_form.es_principal.id_for_label }}"
-                                                                   class="form-check-input principal-checkbox"
-                                                                   {% if imagen_form.instance.es_principal %}checked{% endif %}>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div class="mb-3">
-                                                    <label class="form-label">Título (opcional)</label>
-                                                    {{ imagen_form.titulo }}
-                                                </div>
+                                            {% endif %}
+                                            
+                                            <label>Imagen</label>
+                                            {{ imagen_form.imagen }}
+                                            
+                                            <label>Orden</label>
+                                            {{ imagen_form.orden }}
+                                            
+                                            <div class="form-check">
+                                                <input type="checkbox" name="{{ imagen_form.es_principal.html_name }}" 
+                                                    id="{{ imagen_form.es_principal.id_for_label }}"
+                                                    class="form-check-input"
+                                                    {% if imagen_form.instance.es_principal %}checked{% endif %}>
+                                                <label for="{{ imagen_form.es_principal.id_for_label }}" class="form-check-label">
+                                                    Es imagen principal
+                                                </label>
                                             </div>
+                                            
+                                            <label>Título (opcional)</label>
+                                            {{ imagen_form.titulo }}
+                                            
+                                            <button type="button" class="btn btn-danger btn-eliminar-imagen">
+                                                Eliminar imagen
+                                            </button>
                                         </div>
-                                    </div>
                                     {% endfor %}
                                 </div>
                                 
-                                <button type="button" class="btn btn-outline-primary btn-sm mt-3" id="add-imagen">
-                                    <i class="fas fa-plus"></i> Añadir otra imagen
+                                <button type="button" class="btn btn-primary" id="add-imagen">
+                                    Añadir otra imagen
                                 </button>
                             </div>
                         </div>
@@ -225,912 +226,104 @@
             </div>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Diagnóstico de botón Añadir:');
+            
+            // Verificar el botón por ID
+            const addBtn = document.getElementById('add-imagen');
+            console.log('Botón por ID:', addBtn);
+            
+            // Verificar por selector
+            const addBtnSelector = document.querySelector('[id="add-imagen"]');
+            console.log('Botón por selector ID:', addBtnSelector);
+            
+            // Verificar por texto
+            const addBtnText = Array.from(document.querySelectorAll('button')).find(btn => 
+                btn.textContent.includes('Añadir otra imagen') || 
+                btn.textContent.includes('Añadir')
+            );
+            console.log('Botón por texto:', addBtnText);
+            
+            // Verificar todos los botones
+            const allButtons = document.querySelectorAll('button');
+            console.log('Todos los botones:', allButtons);
+            
+            // Intentar asignar el evento manualmente
+            if (addBtn) {
+                addBtn.addEventListener('click', function() {
+                    console.log('Botón de añadir imagen clickeado');
+                    alert('Añadiendo nueva imagen...');
+                    // Intenta crear un nuevo elemento
+                    const nuevoBloque = document.createElement('div');
+                    nuevoBloque.className = 'imagen-form';
+                    nuevoBloque.innerHTML = `
+                        <div class="image-preview"></div>
+                        <div>Nueva imagen añadida</div>
+                    `;
+                    
+                    // Intenta añadirlo al contenedor
+                    const container = document.getElementById('imagenes-container');
+                    if (container) {
+                        container.appendChild(nuevoBloque);
+                        console.log('Nuevo bloque añadido');
+                    } else {
+                        console.error('No se encontró el contenedor de imágenes');
+                    }
+                });
+                console.log('Evento click asignado al botón');
+            }
+        });
+        </script>
 </div>
 {% block extra_js %}
-<script src="{% static 'js/producto/imagen_delete.js' %}"></script>
+<script src="{% static 'js/producto/botones_fix.js' %}"></script>
+<script src="{% static 'js/producto/marcas_manager.js' %}"></script>
 {% endblock %}
+<!-- Solución directa en caso de que falle -->
 <script>
+    // Solución de emergencia para los botones
     document.addEventListener('DOMContentLoaded', function() {
-        // Verificar si jQuery está disponible
-        if (typeof jQuery === 'undefined') {
-            console.error('La biblioteca jQuery no está disponible. Algunas funcionalidades no trabajarán correctamente.');
+        // Esperar un poco para asegurarnos que todo esté cargado
+        setTimeout(function() {
+            // Comprobar si los botones ya tienen event listeners
+            const btnAplicar = document.querySelector('button:not([disabled]):not([type="submit"]):not([type="reset"]):not([type="button"])');
+            const btnGuardar = document.querySelector('button:not([disabled]):not([type="submit"]):not([type="reset"]):not([type="button"])+button');
             
-            // Mostrar mensaje de error en el modal si se intenta abrir
-            const jqueryErrorDiv = document.getElementById('jquery-error');
-            if (jqueryErrorDiv) {
-                jqueryErrorDiv.classList.remove('d-none');
-            }
-            return;
-        }
-        
-        // Verificar versión mínima de jQuery
-        var versionParts = jQuery.fn.jquery.split('.');
-        var majorVersion = parseInt(versionParts[0]);
-        if (majorVersion < 3) {
-            console.warn('Se recomienda jQuery 3.x o superior para un funcionamiento óptimo.');
-        }
-        
-        // Función para depurar el estado de los formsets
-        function logFormsetState(prefix) {
-            // Registra en consola información sobre el formset para depuración
-            const total = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
-            const initial = document.getElementById(`id_${prefix}-INITIAL_FORMS`);
-            const forms = document.querySelectorAll(`.${prefix}-form`);
-            console.log(`${prefix}: TOTAL=${total.value}, INITIAL=${initial.value}, DOM Elements=${forms.length}`);
-        }
-        
-        // ===== Validación del formulario al enviar =====
-        const form = document.getElementById('producto-form');
-        form.addEventListener('submit', function(event) {
-            // Registrar estado antes de enviar
-            console.log("Enviando formulario...");
-            logFormsetState('tallas');
-            logFormsetState('imagenes');
-            
-            // Verificar que el management form de tallas tenga valores correctos
-            const tallasTotal = document.getElementById('id_tallas-TOTAL_FORMS');
-            const tallasContainer = document.getElementById('tallas-container');
-            const numTallas = tallasContainer.querySelectorAll('.talla-form').length;
-            
-            // Asegurar que el contador coincida con el número real de elementos
-            if (parseInt(tallasTotal.value) !== numTallas) {
-                console.log(`Corrigiendo TOTAL_FORMS para tallas: ${tallasTotal.value} → ${numTallas}`);
-                tallasTotal.value = numTallas.toString();
-            }
-            
-            // Hacer lo mismo para imágenes
-            const imagenesTotal = document.getElementById('id_imagenes-TOTAL_FORMS');
-            const imagenesContainer = document.getElementById('imagenes-container');
-            const numImagenes = imagenesContainer.querySelectorAll('.imagen-form').length;
-            
-            if (parseInt(imagenesTotal.value) !== numImagenes) {
-                console.log(`Corrigiendo TOTAL_FORMS para imágenes: ${imagenesTotal.value} → ${numImagenes}`);
-                imagenesTotal.value = numImagenes.toString();
-            }
-            
-            // Registrar estado final
-            console.log("Estado final antes de enviar:");
-            logFormsetState('tallas');
-            logFormsetState('imagenes');
-        });
-        
-        // ===== Gestión de tallas =====
-        const addTallaButton = document.getElementById('add-talla');
-        const tallasTotal = document.getElementById('id_tallas-TOTAL_FORMS');
-        const tallasContainer = document.getElementById('tallas-container');
-    
-        if (addTallaButton && tallasContainer) {
-            addTallaButton.addEventListener('click', function() {
-                // Capturar todos los formularios de talla existentes
-                const forms = document.getElementsByClassName('talla-form');
-                
-                if (forms.length === 0) {
-                    console.error("No hay formularios de talla para clonar");
-                    return;
-                }
-                
-                // Obtener el índice para el nuevo formulario
-                const formCount = parseInt(tallasTotal.value || '0');
-                console.log(`Añadiendo talla #${formCount}`);
-                
-                // Clonar el primer formulario
-                const firstForm = forms[0];
-                const newForm = firstForm.cloneNode(true);
-                
-                // Actualizar IDs y nombres usando la función mejorada
-                updateFormAttributes(newForm, 'tallas', formCount);
-                
-                // Limpiar valores en el nuevo formulario
-                newForm.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
-                    input.value = '';
-                });
-                
-                newForm.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                    checkbox.checked = false;
-                });
-                
-                // Añadir al DOM
-                tallasContainer.appendChild(newForm);
-                
-                // IMPORTANTE: Actualizar el contador
-                tallasTotal.value = (formCount + 1).toString();
-                
-                // Depurar estado actual
-                logFormsetState('tallas');
-            });
-        }
-        
-        // ===== Gestión de imágenes =====
-        const addImagenButton = document.getElementById('add-imagen');
-        const imagenesTotal = document.getElementById('id_imagenes-TOTAL_FORMS');
-        const imagenesContainer = document.getElementById('imagenes-container');
-    
-        if (addImagenButton && imagenesContainer) {
-            addImagenButton.addEventListener('click', function() {
-                const forms = document.getElementsByClassName('imagen-form');
-                
-                if (forms.length === 0) {
-                    console.error("No hay formularios de imagen para clonar");
-                    return;
-                }
-                
-                const formCount = parseInt(imagenesTotal.value || '0');
-                console.log(`Añadiendo imagen #${formCount}`);
-                
-                // Clonar el primer formulario
-                const firstForm = forms[0];
-                const newForm = firstForm.cloneNode(true);
-                
-                // Actualizar IDs y nombres
-                updateFormAttributes(newForm, 'imagenes', formCount);
-                
-                // Limpiar valores
-                newForm.querySelectorAll('input[type="text"], input[type="number"], input[type="file"]')
-                    .forEach(input => {
-                        input.value = '';
-                    });
-                
-                newForm.querySelectorAll('input[type="checkbox"]')
-                    .forEach(checkbox => {
-                        checkbox.checked = false;
-                    });
-                
-                // Eliminar vista previa de imagen si existe
-                const imgPreview = newForm.querySelector('img');
-                if (imgPreview && imgPreview.parentNode) {
-                    imgPreview.parentNode.remove();
-                }
-                
-                // Quitar borde de imagen principal
-                const card = newForm.querySelector('.card');
-                if (card) {
-                    card.classList.remove('border-primary');
-                }
-                
-                // Añadir al DOM
-                imagenesContainer.appendChild(newForm);
-                
-                // Actualizar contador
-                imagenesTotal.value = (formCount + 1).toString();
-                
-                // Actualizar handlers para imagen principal
-                setupPrincipalImageHandlers();
-                
-                // Depurar estado actual
-                logFormsetState('imagenes');
-            });
-        }
-        
-        // ===== Gestión de imágenes principales =====
-        function setupPrincipalImageHandlers() {
-            const principalCheckboxes = document.querySelectorAll('.principal-checkbox');
-            
-            principalCheckboxes.forEach(checkbox => {
-                // Eliminar handler previo (evitar duplicación)
-                checkbox.removeEventListener('change', handlePrincipalCheckboxChange);
-                // Añadir nuevo handler
-                checkbox.addEventListener('change', handlePrincipalCheckboxChange);
-            });
-        }
-        
-        function handlePrincipalCheckboxChange() {
-            if (this.checked) {
-                // Desmarcar otros checkboxes
-                document.querySelectorAll('.principal-checkbox').forEach(cb => {
-                    if (cb !== this) cb.checked = false;
-                });
-                
-                // Resaltar visualmente la imagen principal
-                const forms = document.querySelectorAll('.imagen-form');
-                forms.forEach(form => {
-                    const card = form.querySelector('.card');
-                    if (card) {
-                        card.classList.remove('border-primary');
-                    }
-                });
-                
-                const currentForm = this.closest('.imagen-form');
-                if (currentForm) {
-                    const card = currentForm.querySelector('.card');
-                    if (card) {
-                        card.classList.add('border-primary');
-                    }
-                }
-            }
-        }
-        
-        // Ejecutar setup de imágenes principales al cargar
-        setupPrincipalImageHandlers();
-        
-        // ===== Función mejorada para actualizar atributos de formularios =====
-        function updateFormAttributes(element, prefix, index) {
-            // Actualizar atributos id
-            element.querySelectorAll(`[id^="id_${prefix}-"]`).forEach(el => {
-                const oldId = el.id;
-                const newId = oldId.replace(new RegExp(`${prefix}-\\d+`), `${prefix}-${index}`);
-                el.id = newId;
-            });
-            
-            // Actualizar atributos name
-            element.querySelectorAll(`[name^="${prefix}-"]`).forEach(el => {
-                const oldName = el.name;
-                const newName = oldName.replace(new RegExp(`${prefix}-\\d+`), `${prefix}-${index}`);
-                el.name = newName;
-            });
-            
-            // CORRECCIÓN: Usar comillas dobles para permitir interpolación de variable
-            element.querySelectorAll(`label[for^="id_${prefix}-"]`).forEach(label => {
-                if (label.htmlFor) {
-                    const oldFor = label.htmlFor;
-                    const newFor = oldFor.replace(new RegExp(`${prefix}-\\d+`), `${prefix}-${index}`);
-                    label.htmlFor = newFor;
-                }
-            });
-        }
-        
-        // Registrar estado inicial de los formsets
-        console.log("Estado inicial de formsets:");
-        logFormsetState('tallas');
-        logFormsetState('imagenes');
-    
-        // ===== CÓDIGO PARA GESTIÓN DE MARCAS (VERSIÓN MEJORADA) =====
-        // Encapsular el código jQuery en una función autoinvocada para mayor seguridad
-        (function($) {
-            console.log("jQuery cargado correctamente:", $.fn.jquery);
-            
-            // Referencias a elementos del DOM
-            const $modal = $('#gestionMarcasModal');
-            const $btnAnadirMarca = $('#btnAnadirMarca');
-            const $inputNuevaMarca = $('#nuevaMarcaNombre');
-            const $feedbackNuevaMarca = $('#nuevaMarcaFeedback');
-            const $listaMarcas = $('#listaMarcasExistentes');
-            const $selectorMarca = $('#id_marca');
-            
-            // Verificar que todos los elementos están disponibles
-            console.log("Elementos detectados:", {
-                modal: $modal.length > 0,
-                btnAnadirMarca: $btnAnadirMarca.length > 0,
-                inputNuevaMarca: $inputNuevaMarca.length > 0,
-                feedbackNuevaMarca: $feedbackNuevaMarca.length > 0,
-                listaMarcas: $listaMarcas.length > 0,
-                selectorMarca: $selectorMarca.length > 0
-            });
-            
-            // Evento cuando se muestra el modal
-            $modal.on('shown.bs.modal', function() {
-                console.log("Modal mostrado, cargando marcas...");
-                cargarMarcas();
-                $inputNuevaMarca.focus();
-            });
-            
-            // Evento para añadir marca
-            $btnAnadirMarca.on('click', function() {
-                crearMarca();
-            });
-            
-            // Evento Enter en el input
-            $inputNuevaMarca.on('keypress', function(e) {
-                if (e.which === 13) {
+            if (btnAplicar) {
+                btnAplicar.onclick = function(e) {
                     e.preventDefault();
-                    crearMarca();
-                }
-            });
-            
-            // Función para cargar marcas
-            function cargarMarcas() {
-                console.log("Cargando marcas...");
-                
-                // Mostrar loader
-                $listaMarcas.html(`
-                    <div class="text-center p-3">
-                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                        <span class="ms-2">Cargando marcas...</span>
-                    </div>
-                `);
-                
-                // Solicitud AJAX
-                $.ajax({
-                    url: "{% url 'catalogo:listar_marcas_ajax' %}",
-                    type: 'GET',
-                    dataType: 'json',
-                    success: function(data) {
-                        console.log("Marcas cargadas:", data);
-                        
-                        if (data.success) {
-                            renderizarMarcas(data.marcas);
-                        } else {
-                            mostrarError($listaMarcas, data.error || "Error al cargar las marcas");
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error("Error AJAX:", error, xhr.responseText);
-                        mostrarError($listaMarcas, "Error en la solicitud: " + error);
-                    }
-                });
-            }
-            
-            // Función para renderizar lista de marcas
-            function renderizarMarcas(marcas) {
-                if (!marcas || marcas.length === 0) {
-                    $listaMarcas.html('<div class="alert alert-info">No hay marcas disponibles</div>');
-                    return;
-                }
-                
-                let html = '';
-                
-                marcas.forEach(function(marca) {
-                    html += `
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                            ${marca.nombre}
-                            <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-marca" 
-                                    data-id="${marca.id}" data-nombre="${marca.nombre}">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    `;
-                });
-                
-                $listaMarcas.html(html);
-                
-                // Asignar eventos a botones de eliminar
-                $('.btn-eliminar-marca').on('click', function() {
-                    const id = $(this).data('id');
-                    const nombre = $(this).data('nombre');
+                    alert('Enviando formulario...');
                     
-                    if (confirm(`¿Estás seguro de eliminar la marca "${nombre}"?`)) {
-                        eliminarMarca(id);
-                    }
-                });
-            }
-            
-            // Función para crear nueva marca
-            function crearMarca() {
-                const nombre = $inputNuevaMarca.val().trim();
-                
-                if (!nombre) {
-                    mostrarFeedback("Por favor, ingresa un nombre para la marca");
-                    return;
-                }
-                
-                // Mostrar loader y deshabilitar botón
-                $btnAnadirMarca.prop('disabled', true)
-                    .html('<span class="spinner-border spinner-border-sm" role="status"></span> Añadiendo...');
+                    // Añadir campo para aplicar cambios
+                    let input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'aplicar_cambios';
+                    input.value = 'true';
+                    document.querySelector('form').appendChild(input);
                     
-                // Solicitud AJAX
-                $.ajax({
-                    url: "{% url 'catalogo:crear_marca_ajax' %}",
-                    type: 'POST',
-                    data: {
-                        'nombre': nombre,
-                        'csrfmiddlewaretoken': $('[name=csrfmiddlewaretoken]').val()
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        console.log("Respuesta crear marca:", data);
-                        
-                        if (data.success) {
-                            // Limpiar input
-                            $inputNuevaMarca.val('');
-                            
-                            // Mensaje de éxito
-                            mostrarNotificacion('success', data.message || "Marca creada exitosamente");
-                            
-                            // Añadir al selector
-                            const newOption = new Option(data.nombre, data.id, true, true);
-                            $selectorMarca.append(newOption).trigger('change');
-                            
-                            // Recargar lista
-                            cargarMarcas();
-                        } else {
-                            mostrarFeedback(data.error || "Error al crear la marca");
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error("Error AJAX:", error, xhr.responseText);
-                        mostrarFeedback("Error en la solicitud: " + error);
-                    },
-                    complete: function() {
-                        // Restaurar botón
-                        $btnAnadirMarca.prop('disabled', false).html('Añadir');
-                    }
-                });
+                    // Enviar formulario
+                    document.querySelector('form').submit();
+                };
             }
             
-            // Función para eliminar marca
-            function eliminarMarca(id) {
-                console.log("Eliminando marca:", id);
-                
-                // Mostrar loader
-                $listaMarcas.html(`
-                    <div class="text-center p-3">
-                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                        <span class="ms-2">Eliminando marca...</span>
-                    </div>
-                `);
-                
-                // Solicitud AJAX
-                $.ajax({
-                    url: "{% url 'catalogo:eliminar_marca_ajax' %}",
-                    type: 'POST',
-                    data: {
-                        'id': id,
-                        'csrfmiddlewaretoken': $('[name=csrfmiddlewaretoken]').val()
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        console.log("Respuesta eliminar marca:", data);
-                        
-                        if (data.success) {
-                            // Mensaje de éxito
-                            mostrarNotificacion('success', data.message || "Marca eliminada exitosamente");
-                            
-                            // Eliminar del selector
-                            const option = $selectorMarca.find(`option[value="${id}"]`);
-                            if (option.length) {
-                                // Si es la seleccionada, seleccionar otra
-                                if (option.is(':selected') && $selectorMarca.children().length > 1) {
-                                    const newIndex = option.is(':first-child') ? 1 : option.index() - 1;
-                                    $selectorMarca.prop('selectedIndex', newIndex);
-                                }
-                                option.remove();
-                            }
-                            
-                            // Recargar lista
-                            cargarMarcas();
-                        } else {
-                            mostrarNotificacion('error', data.error || "Error al eliminar la marca");
-                            cargarMarcas();
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error("Error AJAX:", error, xhr.responseText);
-                        mostrarNotificacion('error', "Error en la solicitud: " + error);
-                        cargarMarcas();
-                    }
-                });
-            }
-            
-            // Función para mostrar feedback
-            function mostrarFeedback(mensaje) {
-                $feedbackNuevaMarca.text(mensaje).show();
-                $inputNuevaMarca.addClass('is-invalid');
-                
-                setTimeout(function() {
-                    $inputNuevaMarca.removeClass('is-invalid');
-                    $feedbackNuevaMarca.hide();
-                }, 5000);
-            }
-            
-            // Función para mostrar error en un contenedor
-            function mostrarError(contenedor, mensaje) {
-                contenedor.html(`
-                    <div class="alert alert-danger">
-                        ${mensaje}
-                    </div>
-                `);
-            }
-            
-            // Función para mostrar notificaciones (compatible con toastr o sin él)
-            function mostrarNotificacion(tipo, mensaje) {
-                // Si toastr está disponible, usarlo
-                if (typeof toastr !== 'undefined') {
-                    toastr[tipo](mensaje);
-                    return;
-                }
-                
-                // Alternativa: usar alertas nativas de Bootstrap
-                let alertClass = 'alert-info';
-                if (tipo === 'success') alertClass = 'alert-success';
-                if (tipo === 'error') alertClass = 'alert-danger';
-                if (tipo === 'warning') alertClass = 'alert-warning';
-                
-                const $alerta = $(`
-                    <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                        ${mensaje}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                `);
-                
-                // Buscar el contenedor de notificaciones o crear uno
-                let $notificaciones = $('#notificaciones');
-                if (!$notificaciones.length) {
-                    $notificaciones = $('<div id="notificaciones" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>');
-                    $('body').append($notificaciones);
-                }
-                
-                $notificaciones.append($alerta);
-                
-                // Auto-cerrar después de 5 segundos
-                setTimeout(function() {
-                    $alerta.alert('close');
-                }, 5000);
-            }
-            
-        })(jQuery); // Fin del bloque de jQuery
-
-        const btnAplicarCambios = document.getElementById('btn-aplicar-cambios');
-        if (btnAplicarCambios) {
-            btnAplicarCambios.addEventListener('click', function(event) {
-                // Prevenir comportamiento por defecto
-                event.preventDefault();
-                
-                // Preparar datos del formulario
-                const formulario = document.getElementById('producto-form');
-                const formData = new FormData(formulario);
-                
-                // Añadir un campo para indicar que es una solicitud de "aplicar cambios"
-                formData.append('aplicar_cambios', 'true');
-                
-                // Mostrar indicador de carga
-                btnAplicarCambios.disabled = true;
-                btnAplicarCambios.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Aplicando...';
-                
-                // Enviar la solicitud vía AJAX
-                fetch(formulario.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Error en la respuesta del servidor');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    // Restaurar el botón
-                    btnAplicarCambios.disabled = false;
-                    btnAplicarCambios.innerHTML = '<i class="fas fa-check-circle"></i> Aplicar cambios';
+            if (btnGuardar) {
+                btnGuardar.onclick = function(e) {
+                    e.preventDefault();
+                    alert('Guardando y saliendo...');
                     
-                    // Mostrar mensaje de éxito
-                    if (data.success) {
-                        // Si hay toastr disponible
-                        if (typeof toastr !== 'undefined') {
-                            toastr.success(data.message || 'Cambios aplicados exitosamente');
-                        } else {
-                            // Mostrar alerta de Bootstrap
-                            const alertHTML = `
-                                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                    ${data.message || 'Cambios aplicados exitosamente'}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                            `;
-                            const cardBody = formulario.closest('.card-body');
-                            if (cardBody) {
-                                cardBody.insertAdjacentHTML('afterbegin', alertHTML);
-                            }
-                        }
-                        
-                        // Actualizar campos ocultos o estado necesario
-                        if (data.producto_id) {
-                            // Si es un producto nuevo, actualizar el ID en la URL
-                            const currentPath = window.location.pathname;
-                            if (currentPath.includes('/crear/')) {
-                                history.replaceState(
-                                    null, 
-                                    '', 
-                                    currentPath.replace('/crear/', `/${data.producto_id}/editar/`)
-                                );
-                            }
-                        }
-                    } else {
-                        // Mostrar errores
-                        if (typeof toastr !== 'undefined') {
-                            toastr.error(data.error || 'Ha ocurrido un error');
-                        } else {
-                            const alertHTML = `
-                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                    ${data.error || 'Ha ocurrido un error'}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                            `;
-                            const cardBody = formulario.closest('.card-body');
-                            if (cardBody) {
-                                cardBody.insertAdjacentHTML('afterbegin', alertHTML);
-                            }
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
+                    // Añadir campo para redirección
+                    let input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'redirigir';
+                    input.value = 'true';
+                    document.querySelector('form').appendChild(input);
                     
-                    // Restaurar el botón
-                    btnAplicarCambios.disabled = false;
-                    btnAplicarCambios.innerHTML = '<i class="fas fa-check-circle"></i> Aplicar cambios';
-                    
-                    // Mostrar mensaje de error
-                    if (typeof toastr !== 'undefined') {
-                        toastr.error('Error al procesar la solicitud');
-                    } else {
-                        const alertHTML = `
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                Error al procesar la solicitud
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        `;
-                        const cardBody = formulario.closest('.card-body');
-                        if (cardBody) {
-                            cardBody.insertAdjacentHTML('afterbegin', alertHTML);
-                        }
-                    }
-                });
-            });
-        }
-        const btnGuardarSalir = document.getElementById('btn-guardar-salir');
-        if (btnGuardarSalir) {
-            btnGuardarSalir.addEventListener('click', function(event) {
-                // Prevenir comportamiento por defecto
-                event.preventDefault();
-                
-                // Obtener el formulario
-                const formulario = document.getElementById('producto-form');
-                
-                // Añadir un campo oculto al formulario para indicar que queremos redirigir
-                const inputRedirigir = document.createElement('input');
-                inputRedirigir.type = 'hidden';
-                inputRedirigir.name = 'redirigir';
-                inputRedirigir.value = 'true';
-                formulario.appendChild(inputRedirigir);
-                
-                // Enviar el formulario
-                formulario.submit();
-            });
-        }
-
-
-    });
-    // Función para actualizar todos los campos de gestión de formularios
-    function actualizarIndicesFormularios() {
-        const imagenesContainer = document.getElementById('imagenes-container');
-        if (!imagenesContainer) return;
-        
-        const bloques = imagenesContainer.querySelectorAll(':scope > div');
-        const totalFormsInput = document.getElementById('id_imagenes-TOTAL_FORMS');
-        
-        if (totalFormsInput) {
-            totalFormsInput.value = bloques.length;
-            console.log('TOTAL_FORMS actualizado a:', bloques.length);
-        }
-        
-        // Re-indexar todos los campos para asegurar que sean consecutivos
-        bloques.forEach((bloque, index) => {
-            const inputs = bloque.querySelectorAll('input, select, textarea');
-            inputs.forEach(input => {
-                if (input.name) {
-                    input.name = input.name.replace(/-\d+-/, `-${index}-`);
-                }
-                if (input.id) {
-                    input.id = input.id.replace(/-\d+-/, `-${index}-`);
-                }
-            });
-            
-            // También actualizar etiquetas
-            const labels = bloque.querySelectorAll('label');
-            labels.forEach(label => {
-                if (label.htmlFor) {
-                    label.htmlFor = label.htmlFor.replace(/-\d+-/, `-${index}-`);
-                }
-            });
-        });
-    }
-
-    // Agregar al evento del formulario
-    const form = document.getElementById('producto-form');
-    if (form) {
-        form.addEventListener('submit', function() {
-            actualizarIndicesFormularios();
-        });
-    }
-</script>
-<style>
-    /* Estilos para los botones de eliminar bloque */
-    .btn-eliminar-bloque {
-        margin-top: 10px;
-        margin-bottom: 10px;
-        width: 100%;
-    }
-    
-    /* Estilo para bloques marcados para eliminar */
-    .bloque-eliminando {
-        opacity: 0.5;
-        border: 2px dashed #dc3545 !important;
-        background-color: rgba(220, 53, 69, 0.1);
-    }
-    </style>
-    
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Inicializando botones de eliminar bloques...');
-        
-        // 1. Remover botones existentes para evitar duplicados
-        document.querySelectorAll('.btn-eliminar-bloque').forEach(btn => btn.remove());
-        
-        // 2. Identificar los bloques de imagen
-        const imagenesContainer = document.getElementById('imagenes-container');
-        if (!imagenesContainer) {
-            console.error('No se encontró el contenedor de imágenes');
-            return;
-        }
-        
-        // 3. Agregar botones limpios a cada bloque
-        Array.from(imagenesContainer.children).forEach(function(bloque) {
-            // Verificar si el bloque ya tiene un botón
-            if (bloque.querySelector('.btn-eliminar-bloque')) {
-                return; // Ya tiene botón, saltar este bloque
+                    // Enviar formulario
+                    document.querySelector('form').submit();
+                };
             }
-            
-            // Crear nuevo botón
-            const boton = document.createElement('button');
-            boton.type = 'button';
-            boton.className = 'btn btn-danger btn-eliminar-bloque';
-            boton.innerHTML = '<i class="fas fa-trash"></i> Eliminar este bloque';
-            
-            // Crear un div para contener el botón y evitar conflictos de layout
-            const contenedorBoton = document.createElement('div');
-            contenedorBoton.className = 'text-center mb-2';
-            contenedorBoton.appendChild(boton);
-            
-            // Agregar al final del bloque (no dentro de otro elemento)
-            bloque.appendChild(contenedorBoton);
-            
-            // Configurar evento de clic
-            boton.addEventListener('click', function() {
-                if (confirm('¿Estás seguro de eliminar este bloque de imagen?')) {
-                    eliminarBloque(bloque, boton);
-                }
-            });
-        });
-        
-        /**
-         * Función para eliminar un bloque de imagen
-         */
-        function eliminarBloque(bloque, boton) {
-            // Buscar el checkbox DELETE
-            const deleteCheckbox = bloque.querySelector('input[id$="-DELETE"]');
-            
-            if (deleteCheckbox) {
-                console.log('Marcando bloque para eliminar (checkbox encontrado)');
-                
-                // Marcar el checkbox
-                deleteCheckbox.checked = true;
-                
-                // Aplicar estilos
-                bloque.classList.add('bloque-eliminando');
-                
-                // Cambiar el botón a "Restaurar"
-                boton.className = 'btn btn-warning btn-eliminar-bloque';
-                boton.innerHTML = '<i class="fas fa-undo"></i> Restaurar';
-                
-                // Cambiar el comportamiento del botón
-                boton.removeEventListener('click', arguments.callee);
-                boton.addEventListener('click', function() {
-                    // Desmarcar el checkbox
-                    deleteCheckbox.checked = false;
-                    
-                    // Quitar estilos
-                    bloque.classList.remove('bloque-eliminando');
-                    
-                    // Restaurar el botón
-                    boton.className = 'btn btn-danger btn-eliminar-bloque';
-                    boton.innerHTML = '<i class="fas fa-trash"></i> Eliminar este bloque';
-                    
-                    // Restaurar el comportamiento original
-                    boton.removeEventListener('click', arguments.callee);
-                    boton.addEventListener('click', function() {
-                        if (confirm('¿Estás seguro de eliminar este bloque de imagen?')) {
-                            eliminarBloque(bloque, boton);
-                        }
-                    });
-                });
-            } else {
-                console.log('Eliminando bloque directamente (checkbox no encontrado)');
-                
-                // Eliminar el bloque directamente
-                bloque.remove();
-                
-                // Actualizar el contador de formularios
-                actualizarIndicesFormularios();
-            }
-        }
-        
-        /**
-         * Función para actualizar los índices de los formularios
-         */
-        function actualizarIndicesFormularios() {
-            if (!imagenesContainer) return;
-            
-            // Obtener el input de TOTAL_FORMS
-            const totalFormsInput = document.querySelector('input[name$="TOTAL_FORMS"]');
-            if (!totalFormsInput) {
-                console.error('No se encontró el campo TOTAL_FORMS');
-                return;
-            }
-            
-            // Obtener todos los bloques visibles
-            const bloques = Array.from(imagenesContainer.children);
-            
-            // Actualizar el contador
-            totalFormsInput.value = bloques.length;
-            console.log('TOTAL_FORMS actualizado a:', bloques.length);
-            
-            // Re-indexar todos los campos
-            bloques.forEach(function(bloque, index) {
-                // Actualizar inputs
-                bloque.querySelectorAll('input, select, textarea').forEach(function(input) {
-                    if (input.name) {
-                        input.name = input.name.replace(/\d+/, index);
-                    }
-                    if (input.id) {
-                        input.id = input.id.replace(/\d+/, index);
-                    }
-                });
-                
-                // Actualizar labels
-                bloque.querySelectorAll('label').forEach(function(label) {
-                    if (label.htmlFor) {
-                        label.htmlFor = label.htmlFor.replace(/\d+/, index);
-                    }
-                });
-            });
-        }
-        
-        // Agregar evento submit al formulario para actualizar índices
-        const formulario = document.querySelector('form');
-        if (formulario) {
-            formulario.addEventListener('submit', function(e) {
-                actualizarIndicesFormularios();
-            });
-        }
-        
-        // Función para agregar botones a nuevos bloques
-        function observarNuevosBloques() {
-            // Usar MutationObserver para detectar cambios en el contenedor
-            const observer = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
-                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                        // Procesar nuevos nodos
-                        mutation.addedNodes.forEach(function(nodo) {
-                            if (nodo.nodeType === 1) { // Es un elemento
-                                if (!nodo.querySelector('.btn-eliminar-bloque')) {
-                                    // Crear botón
-                                    const boton = document.createElement('button');
-                                    boton.type = 'button';
-                                    boton.className = 'btn btn-danger btn-eliminar-bloque';
-                                    boton.innerHTML = '<i class="fas fa-trash"></i> Eliminar este bloque';
-                                    
-                                    // Crear contenedor
-                                    const contenedorBoton = document.createElement('div');
-                                    contenedorBoton.className = 'text-center mb-2';
-                                    contenedorBoton.appendChild(boton);
-                                    
-                                    // Agregar al bloque
-                                    nodo.appendChild(contenedorBoton);
-                                    
-                                    // Configurar evento
-                                    boton.addEventListener('click', function() {
-                                        if (confirm('¿Estás seguro de eliminar este bloque de imagen?')) {
-                                            eliminarBloque(nodo, boton);
-                                        }
-                                    });
-                                }
-                            }
-                        });
-                    }
-                });
-            });
-            
-            // Configurar observador
-            observer.observe(imagenesContainer, { 
-                childList: true 
-            });
-        }
-        
-        // Iniciar observación de nuevos bloques
-        observarNuevosBloques();
-        
-        console.log('Botones de eliminar bloque inicializados correctamente');
+        }, 500);
     });
     </script>
 {% endblock %}

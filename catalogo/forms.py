@@ -60,18 +60,29 @@ ImagenFormSet = inlineformset_factory(
     }
 )
 
-# Formset para imágenes
+# Formset para imágenes optimizado con mejor manejo de eliminación
 ImagenFormSet = inlineformset_factory(
     Producto, ImagenProducto,
     fields=('imagen', 'titulo', 'orden', 'es_principal'),
-    extra=1,  # Mostrar solo 1 formulario extra
-    max_num=10,  # Máximo 10 imágenes
-    validate_max=True,  # Validar el máximo
+    extra=0,  # No añadir formularios extra (lo haremos con JavaScript)
     can_delete=True,
+    max_num=10,  # Máximo 10 imágenes
+    validate_max=True,
     widgets={
-        'imagen': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
-        'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título de la imagen'}),
-        'orden': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
-        'es_principal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        'imagen': forms.FileInput(attrs={
+            'class': 'form-control', 
+            'accept': 'image/*'
+        }),
+        'titulo': forms.TextInput(attrs={
+            'class': 'form-control', 
+            'placeholder': 'Título descriptivo de la imagen'
+        }),
+        'orden': forms.NumberInput(attrs={
+            'class': 'form-control', 
+            'min': '0'
+        }),
+        'es_principal': forms.CheckboxInput(attrs={
+            'class': 'principal-checkbox'
+        }),
     }
 )

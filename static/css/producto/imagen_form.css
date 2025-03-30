@@ -1,0 +1,69 @@
+/**
+ * Estilos para el formulario de imágenes de producto
+ */
+
+/* Mejorar el espaciado entre bloques de imagen */
+.imagen-form {
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px dashed #dee2e6;
+}
+
+/* Estilos para el botón de eliminar */
+.btn-eliminar-bloque {
+    margin-top: 0.5rem;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.btn-eliminar-bloque:hover {
+    transform: translateY(-2px);
+}
+
+/* Estilo para bloques marcados para eliminar */
+.bloque-eliminando {
+    opacity: 0.5;
+    border: 2px dashed #dc3545 !important;
+    background-color: rgba(220, 53, 69, 0.1);
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+}
+
+/* Efectos de hover para imágenes */
+.image-container img {
+    transition: transform 0.2s ease;
+}
+
+.image-container img:hover {
+    transform: scale(1.05);
+}
+
+/* Estilos para las tarjetas */
+.imagen-form .card {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.imagen-form .card:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilos para la tarjeta de imagen principal */
+.imagen-form .card.border-primary {
+    box-shadow: 0 2px 10px rgba(13, 110, 253, 0.3);
+}
+
+/* Mejorar el espaciado dentro de las tarjetas */
+.imagen-form .card-body {
+    padding: 1.25rem;
+}
+
+/* Hacer más visible el checkbox de principal */
+.principal-checkbox {
+    transform: scale(1.2);
+}
+
+.principal-checkbox:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
