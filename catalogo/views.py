@@ -41,14 +41,14 @@ def admin_lista_productos(request):
 @user_passes_test(es_admin)
 def crear_producto(request):
     """
-    Vista para crear un nuevo producto con sus tallas e imágenes asociadas.
-    Gestiona el formulario principal del producto y los formsets para tallas e imágenes.
+    Vista para crear un nuevo producto con soporte para aplicar cambios sin redirección
+    y guardar y salir para redirigir a la lista de productos
     """
     if request.method == 'POST':
-        # Imprimir información de depuración
-        print("POST recibido para crear producto")
-        print(f"Tallas TOTAL_FORMS: {request.POST.get('tallas-TOTAL_FORMS')}")
-        print(f"Imágenes TOTAL_FORMS: {request.POST.get('imagenes-TOTAL_FORMS')}")
+        # Verificar si es una solicitud de "aplicar cambios"
+        es_aplicar_cambios = request.POST.get('aplicar_cambios') == 'true'
+        # Verificar si es una solicitud AJAX
+        es_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         
         # Crear formularios con los datos POST
         form = ProductoForm(request.POST, request.FILES)
@@ -68,31 +68,50 @@ def crear_producto(request):
             tallas_valid = talla_formset.is_valid()
             imagenes_valid = imagen_formset.is_valid()
             
-            if not tallas_valid:
-                print("Errores en formset de tallas:")
-                for i, errors in enumerate(talla_formset.errors):
-                    print(f"  Formulario {i}: {errors}")
-                print(f"  Errores no de formulario: {talla_formset.non_form_errors()}")
-            
-            if not imagenes_valid:
-                print("Errores en formset de imágenes:")
-                for i, errors in enumerate(imagen_formset.errors):
-                    print(f"  Formulario {i}: {errors}")
-                print(f"  Errores no de formulario: {imagen_formset.non_form_errors()}")
-            
             # Si ambos formsets son válidos, guardarlos
             if tallas_valid and imagenes_valid:
                 talla_formset.save()
                 imagen_formset.save()
                 
+                # Si es solicitud AJAX para "aplicar cambios"
+                if es_ajax and es_aplicar_cambios:
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'Producto "{producto.nombre}" creado exitosamente',
+                        'producto_id': producto.id
+                    })
+                
+                # Si no es AJAX o es para guardar y salir
                 messages.success(request, f'Producto "{producto.nombre}" creado exitosamente')
                 return redirect('catalogo:admin_lista_productos')
             else:
-                # Si hay errores en los formsets, mostramos mensaje general
-                messages.error(request, 'Por favor, corrige los errores en el formulario')
+                # Errores en los formsets
+                errors = []
+                if not tallas_valid:
+                    errors.append('Hay errores en las tallas')
+                if not imagenes_valid:
+                    errors.append('Hay errores en las imágenes')
+                
+                # Si es solicitud AJAX para "aplicar cambios"
+                if es_ajax and es_aplicar_cambios:
+                    return JsonResponse({
+                        'success': False,
+                        'error': ' '.join(errors)
+                    })
+                
+                # Si no es AJAX o es para guardar y salir
+                for error in errors:
+                    messages.error(request, error)
         else:
-            # Si hay errores en el formulario principal
-            print("Errores en formulario principal:", form.errors)
+            # Errores en el formulario principal
+            # Si es solicitud AJAX para "aplicar cambios"
+            if es_ajax and es_aplicar_cambios:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Hay errores en la información básica del producto'
+                })
+            
+            # Si no es AJAX o es para guardar y salir
             messages.error(request, 'Por favor, corrige los errores en el formulario principal')
     else:
         # Para solicitudes GET, mostrar formularios vacíos
@@ -108,18 +127,24 @@ def crear_producto(request):
         'accion': 'Crear'
     })
 
+
 # Editar producto existente
 @login_required
 @user_passes_test(es_admin)
 def editar_producto(request, producto_id):
+    """
+    Vista para editar un producto existente con soporte para aplicar cambios sin redirección
+    y guardar y salir para redirigir a la lista de productos
+    """
     producto = get_object_or_404(Producto, id=producto_id)
     
     if request.method == 'POST':
-        # Datos para debug
-        print("Management Form Fields en POST:")
-        for key in request.POST:
-            if 'tallas-' in key and 'FORMS' in key:
-                print(f"  {key}: '{request.POST[key]}'")
+        # Verificar si es una solicitud de "aplicar cambios"
+        es_aplicar_cambios = request.POST.get('aplicar_cambios') == 'true'
+        # Verificar si se debe redirigir después de guardar
+        debe_redirigir = request.POST.get('redirigir') == 'true'
+        # Verificar si es una solicitud AJAX
+        es_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         
         # Procesar el formulario
         form = ProductoForm(request.POST, request.FILES, instance=producto)
@@ -136,18 +161,43 @@ def editar_producto(request, producto_id):
             producto = form.save()
             talla_formset.save()
             imagen_formset.save()
+            
+            # Añadir un parámetro a la sesión para evitar caché de imágenes
             cache_buster = str(int(time.time()))
             request.session['cache_buster'] = cache_buster
-            messages.success(request, 'Producto actualizado completamente')
-            return redirect('catalogo:admin_lista_productos')
+            
+            # Si es solicitud AJAX para "aplicar cambios"
+            if es_ajax and es_aplicar_cambios:
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Cambios aplicados exitosamente',
+                    'producto_id': producto.id
+                })
+            
+            # Si se debe redirigir después de guardar
+            messages.success(request, 'Producto actualizado correctamente')
+            if debe_redirigir:
+                return redirect('catalogo:admin_lista_productos')
         else:
-            # Mostrar errores específicos
+            # Hay errores en los formularios
+            errors = []
             if not form_valid:
-                messages.error(request, 'Hay errores en la información básica del producto')
+                errors.append('Hay errores en la información básica del producto')
             if not talla_valid:
-                messages.error(request, 'Hay errores en las tallas')
+                errors.append('Hay errores en las tallas')
             if not imagen_valid:
-                messages.error(request, 'Hay errores en las imágenes')
+                errors.append('Hay errores en las imágenes')
+            
+            # Si es solicitud AJAX para "aplicar cambios"
+            if es_ajax and es_aplicar_cambios:
+                return JsonResponse({
+                    'success': False,
+                    'error': ' '.join(errors)
+                })
+            
+            # Si no es AJAX o es para guardar y salir
+            for error in errors:
+                messages.error(request, error)
     else:
         form = ProductoForm(instance=producto)
         talla_formset = TallaFormSet(instance=producto, prefix='tallas')

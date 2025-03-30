@@ -1,0 +1,22 @@
+<div class="custom-dropdown-wrapper">
+    <button type="button" class="custom-dropdown-toggle" id="adminDropdownToggle">
+      <i class="fas fa-cog"></i> 
+      <span>Administración</span>
+      <i class="fas fa-chevron-down"></i>
+    </button>
+    
+    <div class="custom-dropdown-menu" id="adminDropdownMenu" style="display: none;">
+      <a href="{% url 'catalogo:admin_lista_productos' %}" class="custom-dropdown-item">
+        <i class="fas fa-boxes"></i> Gestionar Productos
+      </a>
+      <a href="{% url 'pedidos:admin_lista_pedidos' %}" class="custom-dropdown-item">
+        <i class="fas fa-shopping-bag"></i> Gestionar Pedidos
+      </a>
+      <a href="{% url 'admin:index' %}" class="custom-dropdown-item">
+        <i class="fas fa-tools"></i> Panel de Django
+      </a>
+      <a href="{% url 'pedidos:estadisticas_pedidos' %}" class="custom-dropdown-item">
+        <i class="fas fa-chart-bar"></i> Estadísticas de Pedidos
+      </a>
+    </div>
+  </div>
