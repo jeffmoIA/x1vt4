@@ -111,7 +111,120 @@
 
 {% block extra_js %}
 <script>
-    // Función para obtener el token CSRF de las cookies
+
+    // Script de diagnóstico
+document.addEventListener('DOMContentLoaded', function() {
+    // Imprimir todas las bibliotecas cargadas
+    console.log('-------- DIAGNÓSTICO DE BIBLIOTECAS --------');
+    console.log('jQuery:', typeof jQuery !== 'undefined' ? jQuery.fn.jquery : 'No cargado');
+    console.log('DataTables:', typeof jQuery !== 'undefined' && typeof jQuery.fn.DataTable !== 'undefined' ? 'Cargado' : 'No cargado');
+    console.log('Bootstrap:', typeof bootstrap !== 'undefined' ? 'Cargado' : 'No cargado');
+    console.log('Toastr:', typeof toastr !== 'undefined' ? 'Cargado' : 'No cargado');
+    console.log('----------------------------------------');
+    
+    // Listar todos los scripts cargados
+    console.log('Scripts cargados:');
+    document.querySelectorAll('script').forEach(function(script, index) {
+        console.log(index + ':', script.src || 'Script inline');
+    });
+});
+
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("Verificando jQuery:", typeof jQuery !== 'undefined' ? 'Disponible' : 'No disponible');
+        console.log("Verificando DataTables:", typeof $.fn.DataTable !== 'undefined' ? 'Disponible' : 'No disponible');
+        
+        // Si jQuery está disponible pero DataTables no
+        if (typeof jQuery !== 'undefined' && typeof $.fn.DataTable === 'undefined') {
+            console.error("DataTables no está disponible aunque jQuery sí lo está");
+            var tablaElement = document.getElementById('productos-table');
+            if (tablaElement) {
+                tablaElement.insertAdjacentHTML('beforebegin', 
+                    '<div class="alert alert-danger">Error: DataTables no está disponible. Se ha cargado jQuery pero no DataTables.</div>');
+            }
+            return;
+        }
+        
+        // Variables para los filtros
+        let filtroCategoria = '';
+        let filtroMarca = '';
+        let filtroDisponibilidad = '';
+        
+        try {
+            // Inicializar tabla solo si DataTables está disponible
+            if (typeof $.fn.DataTable !== 'undefined') {
+                var productosTable = $('#productos-table').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    ajax: {
+                        url: "{% url 'catalogo:admin_productos_data' %}",
+                        type: "POST",
+                        headers: {
+                            "X-CSRFToken": getCookie('csrftoken')
+                        },
+                        data: function(d) {
+                            d.categoria_id = filtroCategoria;
+                            d.marca_id = filtroMarca;
+                            d.disponibilidad = filtroDisponibilidad;
+                            d._timestamp = new Date().getTime();
+                            return d;
+                        }
+                    },
+                    columns: [
+                        { data: 'imagen', orderable: false },
+                        { data: 'nombre' },
+                        { data: 'precio' },
+                        { data: 'categoria' },
+                        { data: 'marca' },
+                        { data: 'stock' },
+                        { data: 'disponible', orderable: false },
+                        { data: 'acciones', orderable: false }
+                    ],
+                    language: {
+                        url: '//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json'
+                    },
+                    pageLength: 10,
+                    lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, 'Todos']]
+                });
+                
+                // Definir función recargarTabla global
+                window.recargarTabla = function() {
+                    console.log("Recargando tabla...");
+                    productosTable.ajax.reload(null, false);
+                };
+                
+                // Definir función limpiarCacheImagenes global
+                window.limpiarCacheImagenes = function() {
+                    console.log("Limpiando caché de imágenes...");
+                    productosTable.ajax.reload(null, false);
+                };
+                
+                // Configurar eventos para filtros
+                $('#aplicar-filtros').on('click', function() {
+                    filtroCategoria = $('#filtro-categoria').val();
+                    filtroMarca = $('#filtro-marca').val();
+                    filtroDisponibilidad = $('#filtro-disponibilidad').val();
+                    productosTable.ajax.reload();
+                });
+                
+                $('#limpiar-filtros').on('click', function() {
+                    $('#filtro-categoria, #filtro-marca, #filtro-disponibilidad').val('');
+                    filtroCategoria = '';
+                    filtroMarca = '';
+                    filtroDisponibilidad = '';
+                    productosTable.ajax.reload();
+                });
+            }
+        } catch (error) {
+            console.error("Error al inicializar DataTable:", error);
+            var tablaElement = document.getElementById('productos-table');
+            if (tablaElement) {
+                tablaElement.insertAdjacentHTML('beforebegin', 
+                    '<div class="alert alert-danger">Error al inicializar la tabla: ' + error.message + '</div>');
+            }
+        }
+    });
+    
+    // Función para obtener cookie CSRF
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -126,194 +239,7 @@
         }
         return cookieValue;
     }
-
-    // Variables para los filtros
-    let filtroCategoria = '';
-    let filtroMarca = '';
-    let filtroDisponibilidad = '';
-    
-    // Variable global para la tabla
-    let productosTable;
-
-    // Función para limpiar la caché de imágenes
-    function limpiarCacheImagenes() {
-        // Mostrar indicador de carga
-        toastr.info('Refrescando imágenes...', '', { timeOut: 2000 });
-        
-        // Recargar la tabla forzando una nueva solicitud
-        productosTable.ajax.reload(null, false);
-        
-        // Notificar al usuario
-        setTimeout(function() {
-            toastr.success('Imágenes actualizadas correctamente');
-        }, 2000);
-    }
-
-    // Botón para aplicar filtros
-    document.getElementById('aplicar-filtros').addEventListener('click', function() {
-        filtroCategoria = document.getElementById('filtro-categoria').value;
-        filtroMarca = document.getElementById('filtro-marca').value;
-        filtroDisponibilidad = document.getElementById('filtro-disponibilidad').value;
-        
-        // Mostrar indicadores de filtros activos
-        actualizarIndicadoresFiltros();
-        
-        // Recargar la tabla con los filtros
-        productosTable.ajax.reload();
-    });
-
-    // Botón para limpiar filtros
-    document.getElementById('limpiar-filtros').addEventListener('click', function() {
-        // Resetear valores de los filtros
-        document.getElementById('filtro-categoria').value = '';
-        document.getElementById('filtro-marca').value = '';
-        document.getElementById('filtro-disponibilidad').value = '';
-        
-        // Limpiar variables
-        filtroCategoria = '';
-        filtroMarca = '';
-        filtroDisponibilidad = '';
-        
-        // Actualizar indicadores
-        actualizarIndicadoresFiltros();
-        
-        // Recargar la tabla
-        productosTable.ajax.reload();
-    });
-
-    // Función para mostrar indicadores de filtros activos
-    function actualizarIndicadoresFiltros() {
-        const indicadoresDiv = document.getElementById('filtros-activos');
-        
-        if (!indicadoresDiv) {
-            // Crear el contenedor si no existe
-            const container = document.querySelector('.d-flex.justify-content-between.align-items-center.mb-4');
-            const nuevoDiv = document.createElement('div');
-            nuevoDiv.id = 'filtros-activos';
-            nuevoDiv.className = 'filtros-activos mt-2';
-            container.parentNode.insertBefore(nuevoDiv, container.nextSibling);
-        }
-        
-        // Obtener el contenedor (ahora seguro que existe)
-        const contenedor = document.getElementById('filtros-activos');
-        contenedor.innerHTML = '';
-        
-        // Array para almacenar textos de filtros activos
-        const filtrosActivos = [];
-        
-        // Verificar cada filtro
-        if (filtroCategoria) {
-            const select = document.getElementById('filtro-categoria');
-            const texto = select.options[select.selectedIndex].text;
-            filtrosActivos.push(`<span class="badge bg-info me-2">Categoría: ${texto}</span>`);
-        }
-        
-        if (filtroMarca) {
-            const select = document.getElementById('filtro-marca');
-            const texto = select.options[select.selectedIndex].text;
-            filtrosActivos.push(`<span class="badge bg-info me-2">Marca: ${texto}</span>`);
-        }
-        
-        if (filtroDisponibilidad) {
-            const select = document.getElementById('filtro-disponibilidad');
-            const texto = select.options[select.selectedIndex].text;
-            filtrosActivos.push(`<span class="badge bg-info me-2">Disponibilidad: ${texto}</span>`);
-        }
-        
-        // Si hay filtros activos, mostrarlos
-        if (filtrosActivos.length > 0) {
-            contenedor.innerHTML = '<div class="d-flex align-items-center mb-3">' +
-                                  '<strong class="me-2">Filtros activos:</strong>' +
-                                  filtrosActivos.join('') +
-                                  '</div>';
-        }
-    }
-
-    $(document).ready(function() {
-        console.log("Inicializando DataTable...");
-        
-        // Inicializar DataTable con configuración
-        productosTable = $('#productos-table').DataTable({
-            // Configuración para procesamiento en servidor
-            processing: true,
-            serverSide: true,
-            ajax: {
-                url: "{% url 'catalogo:admin_productos_data' %}",
-                type: "POST",
-                // Incluir el token CSRF en la solicitud
-                headers: {
-                    "X-CSRFToken": getCookie('csrftoken')
-                },
-                // Añadir datos de filtros y timestamp
-                data: function(d) {
-                    // Añadir los valores de los filtros
-                    d.categoria_id = filtroCategoria;
-                    d.marca_id = filtroMarca;
-                    d.disponibilidad = filtroDisponibilidad;
-                    d._timestamp = new Date().getTime();
-                    return d;
-                }
-            },
-            // Definición de columnas
-            columns: [
-                { data: 'imagen', orderable: false },
-                { data: 'nombre' },
-                { data: 'precio' },
-                { data: 'categoria' },
-                { data: 'marca' },
-                { data: 'stock' },
-                { data: 'disponible', orderable: false },
-                { data: 'acciones', orderable: false }
-            ],
-            // Opciones de idioma
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json'
-            },
-            // Longitud de página
-            pageLength: 10,
-            // Opciones de longitud
-            lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, 'Todos']]
-        });
-
-        {% if messages %}
-        // Recargar la tabla para mostrar datos actualizados
-        console.log("Detectados mensajes, recargando tabla...");
-        setTimeout(function() {
-            productosTable.ajax.reload(null, false);
-            console.log("Tabla recargada");
-        }, 100); // Pequeño retraso para asegurar que la tabla está completamente inicializada
-        {% endif %}
-        
-        // Inicializar tooltips cada vez que se redibuja la tabla
-        productosTable.on('draw', function() {
-            // Desactivar tooltips existentes primero para evitar duplicados
-            $('.product-thumbnail[data-bs-toggle="tooltip"]').tooltip('dispose');
-            
-            // Inicializar nuevos tooltips
-            $('.product-thumbnail[data-bs-toggle="tooltip"]').tooltip({
-                placement: 'right',
-                boundary: 'window'
-            });
-        });
-        
-        // Detección de errores AJAX
-        $(document).ajaxError(function(event, jqxhr, settings, thrownError) {
-            console.error('Error en petición AJAX:', thrownError);
-            console.error('Detalles:', jqxhr.status, jqxhr.responseText);
-        });
-    });
-
-    // Función para recargar la tabla manualmente
-    function recargarTabla() {
-        console.log("Recargando tabla manualmente...");
-        if (productosTable) {
-            productosTable.ajax.reload(null, false);
-            console.log("Tabla recargada");
-        } else {
-            console.error("La tabla no está inicializada");
-        }
-    }
-</script>
+    </script>
 {% endblock %}
 {% block page_css %}
 {{ block.super }}
