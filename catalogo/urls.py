@@ -23,4 +23,10 @@ urlpatterns = [
     path('admin/productos/<int:producto_id>/eliminar/', views.eliminar_producto, name='eliminar_producto'),
     # Ruta para procesar solicitudes AJAX de DataTables
     path('admin/productos/data/', views.admin_productos_data, name='admin_productos_data'),
+    # Rutas para gestión de marcas vía AJAX
+    # Rutas para gestión de marcas vía AJAX
+    path('admin/marcas/crear/', views.crear_marca_ajax, name='crear_marca_ajax'),
+    path('admin/marcas/eliminar/', views.eliminar_marca_ajax, name='eliminar_marca_ajax'),
+    path('admin/marcas/listar/', views.listar_marcas_ajax, name='listar_marcas_ajax'),
+    
 ]

@@ -9,6 +9,9 @@ from .models import Producto, Categoria, Marca, ImagenProducto
 from .forms import ProductoForm, TallaFormSet, ImagenFormSet
 from .filters import ProductoFilter
 import time
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from .models import Marca
 
 # Función auxiliar para verificar si el usuario es administrador
 def es_admin(user):
@@ -458,3 +461,104 @@ def admin_productos_data(request):
             'data': [],
             'error': str(e)
         }, status=500)
+        
+@login_required
+@user_passes_test(es_admin)
+def listar_marcas_ajax(request):
+    """
+    Vista para listar todas las marcas en formato JSON.
+    """
+    try:
+        # Obtener todas las marcas ordenadas por nombre
+        marcas = Marca.objects.all().order_by('nombre')
+        
+        # Crear lista de diccionarios con id y nombre
+        marcas_list = [{'id': marca.id, 'nombre': marca.nombre} for marca in marcas]
+        
+        # Retornar como JSON
+        return JsonResponse({'success': True, 'marcas': marcas_list})
+    except Exception as e:
+        # En caso de error, registrar y retornar mensaje
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error al listar marcas: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@login_required
+@user_passes_test(es_admin)
+@require_POST
+def crear_marca_ajax(request):
+    """
+    Vista para crear una nueva marca mediante AJAX.
+    """
+    try:
+        # Obtener el nombre de la marca desde la solicitud POST
+        nombre = request.POST.get('nombre', '').strip()
+        
+        # Validación básica
+        if not nombre:
+            return JsonResponse({'success': False, 'error': 'El nombre de la marca es requerido'}, status=400)
+        
+        # Verificar si ya existe una marca con ese nombre
+        if Marca.objects.filter(nombre__iexact=nombre).exists():
+            return JsonResponse({'success': False, 'error': 'Ya existe una marca con ese nombre'}, status=400)
+        
+        # Crear la nueva marca
+        marca = Marca.objects.create(nombre=nombre)
+        
+        # Retornar respuesta exitosa con los datos de la marca
+        return JsonResponse({
+            'success': True, 
+            'id': marca.id, 
+            'nombre': marca.nombre,
+            'message': f'La marca "{marca.nombre}" ha sido creada exitosamente'
+        })
+    except Exception as e:
+        # En caso de error, registrar y retornar mensaje
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error al crear marca: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@login_required
+@user_passes_test(es_admin)
+@require_POST
+def eliminar_marca_ajax(request):
+    """
+    Vista para eliminar una marca mediante AJAX.
+    """
+    try:
+        # Obtener el ID de la marca
+        marca_id = request.POST.get('id')
+        
+        # Validación básica
+        if not marca_id:
+            return JsonResponse({'success': False, 'error': 'ID de marca no proporcionado'}, status=400)
+        
+        # Obtener la marca o devolver 404
+        marca = get_object_or_404(Marca, id=marca_id)
+        
+        # Verificar si hay productos asociados a esta marca
+        if marca.productos.exists():
+            return JsonResponse({
+                'success': False, 
+                'error': f'No se puede eliminar la marca "{marca.nombre}" porque tiene productos asociados'
+            }, status=400)
+        
+        # Guardar el nombre para el mensaje de confirmación
+        nombre_marca = marca.nombre
+        
+        # Eliminar la marca
+        marca.delete()
+        
+        # Retornar respuesta exitosa
+        return JsonResponse({
+            'success': True,
+            'message': f'La marca "{nombre_marca}" ha sido eliminada exitosamente'
+        })
+    except Exception as e:
+        # En caso de error, registrar y retornar mensaje
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error al eliminar marca: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
