@@ -525,7 +525,7 @@ def listar_marcas_ajax(request):
 
 @login_required
 @user_passes_test(es_admin)
-@require_POST
+@require_POST  # Asegúrate de importar require_POST de django.views.decorators.http
 def crear_marca_ajax(request):
     """
     Vista para crear una nueva marca mediante AJAX.

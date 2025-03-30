@@ -22,13 +22,13 @@ class ProductoForm(forms.ModelForm):
 TallaFormSet = inlineformset_factory(
     Producto, TallaProducto, 
     fields=('talla', 'disponible', 'stock'),
-    extra=1,  # Mostrar un formulario vacío adicional
-    can_delete=True,  # Permitir eliminar tallas
-    min_num=0,  # Mínimo número de formularios (0 = opcional)
-    validate_min=False,  # No validar el mínimo
-    max_num=15,  # Máximo razonable de tallas
-    validate_max=True,  # Validar el máximo
-    absolute_max=20,  # Límite absoluto para prevenir ataques
+    extra=0,  # Cambia de 1 a 0 para que no añada formularios extra
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+    max_num=15,
+    validate_max=True,
+    absolute_max=20,
     widgets={
         'talla': forms.TextInput(attrs={
             'class': 'form-control', 

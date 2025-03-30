@@ -106,7 +106,8 @@
                                                 <td>{{ talla_form.stock|as_crispy_field }}</td>
                                                 <td>
                                                     {% if talla_formset.can_delete %}
-                                                        {{ talla_form.DELETE|as_crispy_field }}
+                                                        <div style="display:none;">{{ talla_form.DELETE|as_crispy_field }}</div>
+                                                        <!-- El botón se añadirá vía JavaScript -->
                                                     {% endif %}
                                                 </td>
                                             </tr>
@@ -127,47 +128,62 @@
                                 {{ imagen_formset.management_form }}
                                 
                                 <!-- Contenedor de imágenes -->
-                                <div id="imagenes-container">
+                                <div id="imagenes-container" class="row">
                                     {% for imagen_form in imagen_formset %}
-                                        <div class="imagen-form" id="imagenes-{{ forloop.counter0 }}">
-                                            {{ imagen_form.id }}
-                                            {{ imagen_form.DELETE.as_hidden }}
-                                            
-                                            {% if imagen_form.instance.pk and imagen_form.instance.imagen %}
-                                                <div class="image-preview">
-                                                    <img src="{{ imagen_form.instance.imagen.url }}" 
-                                                        alt="{{ imagen_form.instance.titulo|default:'Imagen' }}">
+                                        <div class="imagen-form col-md-4 mb-4" id="imagenes-{{ forloop.counter0 }}">
+                                            <div class="card h-100">
+                                                <div class="card-header d-flex justify-content-between align-items-center">
+                                                    <span>Imagen #{{ forloop.counter }}</span>
+                                                    {% if imagen_form.instance.es_principal %}
+                                                        <span class="badge bg-primary">Principal</span>
+                                                    {% endif %}
                                                 </div>
-                                            {% endif %}
-                                            
-                                            <label>Imagen</label>
-                                            {{ imagen_form.imagen }}
-                                            
-                                            <label>Orden</label>
-                                            {{ imagen_form.orden }}
-                                            
-                                            <div class="form-check">
-                                                <input type="checkbox" name="{{ imagen_form.es_principal.html_name }}" 
-                                                    id="{{ imagen_form.es_principal.id_for_label }}"
-                                                    class="form-check-input"
-                                                    {% if imagen_form.instance.es_principal %}checked{% endif %}>
-                                                <label for="{{ imagen_form.es_principal.id_for_label }}" class="form-check-label">
-                                                    Es imagen principal
-                                                </label>
+                                                <div class="card-body">
+                                                    {{ imagen_form.id }}
+                                                    {{ imagen_form.DELETE.as_hidden }}
+                                                    
+                                                    {% if imagen_form.instance.pk and imagen_form.instance.imagen %}
+                                                        <div class="text-center mb-3">
+                                                            <img src="{{ imagen_form.instance.imagen.url }}" 
+                                                                alt="{{ imagen_form.instance.titulo|default:'Imagen' }}"
+                                                                class="img-thumbnail" style="max-height: 150px;">
+                                                        </div>
+                                                    {% endif %}
+                                                    
+                                                    <div class="mb-3">
+                                                        <label for="{{ imagen_form.imagen.id_for_label }}" class="form-label">Imagen</label>
+                                                        {{ imagen_form.imagen }}
+                                                    </div>
+                                                    
+                                                    <div class="mb-3">
+                                                        <label for="{{ imagen_form.orden.id_for_label }}" class="form-label">Orden</label>
+                                                        {{ imagen_form.orden }}
+                                                    </div>
+                                                    
+                                                    <div class="form-check mb-3">
+                                                        {{ imagen_form.es_principal }}
+                                                        <label for="{{ imagen_form.es_principal.id_for_label }}" class="form-check-label">
+                                                            Es imagen principal
+                                                        </label>
+                                                    </div>
+                                                    
+                                                    <div class="mb-3">
+                                                        <label for="{{ imagen_form.titulo.id_for_label }}" class="form-label">Título</label>
+                                                        {{ imagen_form.titulo }}
+                                                    </div>
+                                                </div>
+                                                <div class="card-footer text-center">
+                                                    <button type="button" class="btn btn-danger btn-eliminar-imagen">
+                                                        <i class="fas fa-trash"></i> Eliminar
+                                                    </button>
+                                                </div>
                                             </div>
-                                            
-                                            <label>Título (opcional)</label>
-                                            {{ imagen_form.titulo }}
-                                            
-                                            <button type="button" class="btn btn-danger btn-eliminar-imagen">
-                                                Eliminar imagen
-                                            </button>
                                         </div>
                                     {% endfor %}
                                 </div>
                                 
-                                <button type="button" class="btn btn-primary" id="add-imagen">
-                                    Añadir otra imagen
+                                <button type="button" class="btn btn-primary mt-3" id="add-imagen">
+                                    <i class="fas fa-plus"></i> Añadir otra imagen
                                 </button>
                             </div>
                         </div>
@@ -226,104 +242,53 @@
             </div>
         </div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Diagnóstico de botón Añadir:');
-            
-            // Verificar el botón por ID
-            const addBtn = document.getElementById('add-imagen');
-            console.log('Botón por ID:', addBtn);
-            
-            // Verificar por selector
-            const addBtnSelector = document.querySelector('[id="add-imagen"]');
-            console.log('Botón por selector ID:', addBtnSelector);
-            
-            // Verificar por texto
-            const addBtnText = Array.from(document.querySelectorAll('button')).find(btn => 
-                btn.textContent.includes('Añadir otra imagen') || 
-                btn.textContent.includes('Añadir')
-            );
-            console.log('Botón por texto:', addBtnText);
-            
-            // Verificar todos los botones
-            const allButtons = document.querySelectorAll('button');
-            console.log('Todos los botones:', allButtons);
-            
-            // Intentar asignar el evento manualmente
-            if (addBtn) {
-                addBtn.addEventListener('click', function() {
-                    console.log('Botón de añadir imagen clickeado');
-                    alert('Añadiendo nueva imagen...');
-                    // Intenta crear un nuevo elemento
-                    const nuevoBloque = document.createElement('div');
-                    nuevoBloque.className = 'imagen-form';
-                    nuevoBloque.innerHTML = `
-                        <div class="image-preview"></div>
-                        <div>Nueva imagen añadida</div>
-                    `;
-                    
-                    // Intenta añadirlo al contenedor
-                    const container = document.getElementById('imagenes-container');
-                    if (container) {
-                        container.appendChild(nuevoBloque);
-                        console.log('Nuevo bloque añadido');
-                    } else {
-                        console.error('No se encontró el contenedor de imágenes');
-                    }
-                });
-                console.log('Evento click asignado al botón');
-            }
-        });
-        </script>
 </div>
 {% block extra_js %}
 <script src="{% static 'js/producto/botones_fix.js' %}"></script>
 <script src="{% static 'js/producto/marcas_manager.js' %}"></script>
-{% endblock %}
-<!-- Solución directa en caso de que falle -->
 <script>
-    // Solución de emergencia para los botones
     document.addEventListener('DOMContentLoaded', function() {
-        // Esperar un poco para asegurarnos que todo esté cargado
-        setTimeout(function() {
-            // Comprobar si los botones ya tienen event listeners
-            const btnAplicar = document.querySelector('button:not([disabled]):not([type="submit"]):not([type="reset"]):not([type="button"])');
-            const btnGuardar = document.querySelector('button:not([disabled]):not([type="submit"]):not([type="reset"]):not([type="button"])+button');
-            
-            if (btnAplicar) {
-                btnAplicar.onclick = function(e) {
-                    e.preventDefault();
-                    alert('Enviando formulario...');
-                    
-                    // Añadir campo para aplicar cambios
-                    let input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'aplicar_cambios';
-                    input.value = 'true';
-                    document.querySelector('form').appendChild(input);
-                    
-                    // Enviar formulario
-                    document.querySelector('form').submit();
-                };
-            }
-            
-            if (btnGuardar) {
-                btnGuardar.onclick = function(e) {
-                    e.preventDefault();
-                    alert('Guardando y saliendo...');
-                    
-                    // Añadir campo para redirección
-                    let input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'redirigir';
-                    input.value = 'true';
-                    document.querySelector('form').appendChild(input);
-                    
-                    // Enviar formulario
-                    document.querySelector('form').submit();
-                };
-            }
-        }, 500);
+        // Botones principales del formulario
+        const btnAplicarCambios = document.getElementById('btn-aplicar-cambios');
+        const btnGuardarSalir = document.getElementById('btn-guardar-salir');
+        const formulario = document.getElementById('producto-form');
+        
+        // Gestionar el evento de aplicar cambios
+        if (btnAplicarCambios) {
+            btnAplicarCambios.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Aplicando cambios...');
+                
+                // Crear campo para indicar que queremos aplicar cambios sin redirección
+                const inputAplicar = document.createElement('input');
+                inputAplicar.type = 'hidden';
+                inputAplicar.name = 'aplicar_cambios';
+                inputAplicar.value = 'true';
+                formulario.appendChild(inputAplicar);
+                
+                // Enviar formulario
+                formulario.submit();
+            });
+        }
+        
+        // Gestionar el evento de guardar y salir
+        if (btnGuardarSalir) {
+            btnGuardarSalir.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Guardando y saliendo...');
+                
+                // Crear campo para indicar que queremos redirección
+                const inputRedirigir = document.createElement('input');
+                inputRedirigir.type = 'hidden';
+                inputRedirigir.name = 'redirigir';
+                inputRedirigir.value = 'true';
+                formulario.appendChild(inputRedirigir);
+                
+                // Enviar formulario
+                formulario.submit();
+            });
+        }
     });
-    </script>
+</script>
+{% endblock %}
 {% endblock %}

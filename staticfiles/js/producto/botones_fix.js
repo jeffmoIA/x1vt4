@@ -1,125 +1,232 @@
-/**
- * Solución directa para los botones de acción
- * Este script solo se enfoca en hacer que los botones funcionen
- * e ignora completamente cualquier error no relacionado
- */
+// Script para corregir funcionalidad de botones en el formulario de producto
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Inicializando fix para botones...');
-    
-    // Obtener el formulario
-    const form = document.querySelector('form');
-    if (!form) {
-        console.error('No se encontró el formulario');
-        return;
-    }
-    
-    // Encontrar y configurar los botones por texto
-    document.querySelectorAll('button').forEach(function(btn) {
-        const text = btn.textContent.trim().toLowerCase();
-        
-        // Botón Aplicar cambios
-        if (text.includes('aplicar') || text.includes('cambios')) {
-            console.log('Configurando botón Aplicar cambios:', btn);
-            configureAplicarButton(btn, form);
-        }
-        // Botón Guardar y salir
-        else if (text.includes('guardar') || text.includes('salir')) {
-            console.log('Configurando botón Guardar y salir:', btn);
-            configureGuardarButton(btn, form);
-        }
-    });
-    
-    /**
-     * Configura el botón Aplicar cambios
-     */
-    function configureAplicarButton(btn, form) {
-        // Eliminar todos los event listeners existentes
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-        
-        // Añadir nuevo event listener
-        newBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Click en botón Aplicar cambios');
+    // Convierte los checkboxes DELETE de tallas en botones de eliminar
+    function convertirCheckboxesEnBotones() {
+        document.querySelectorAll('.talla-form').forEach(function(tallaForm) {
+            // Evitar duplicación verificando si ya existe un botón de eliminar
+            if (tallaForm.querySelector('.btn-eliminar-talla')) return;
             
-            // Preparar datos
-            const formData = new FormData(form);
-            formData.append('aplicar_cambios', 'true');
+            // Buscar el checkbox DELETE
+            const deleteCheckbox = tallaForm.querySelector('input[name$="-DELETE"]');
+            if (!deleteCheckbox) return;
             
-            // Mostrar indicador de carga
-            this.disabled = true;
-            const originalText = this.innerHTML;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Aplicando...';
+            // Ocultar el div del checkbox
+            const checkboxContainer = deleteCheckbox.closest('.form-check');
+            if (checkboxContainer) checkboxContainer.style.display = 'none';
             
-            // Enviar solicitud
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+            // Crear botón de eliminar
+            const btnEliminar = document.createElement('button');
+            btnEliminar.type = 'button';
+            btnEliminar.className = 'btn btn-sm btn-danger btn-eliminar-talla';
+            btnEliminar.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
+            
+            // Añadir evento click que funcione tanto para elementos nuevos como existentes
+            btnEliminar.addEventListener('click', function() {
+                if (confirm('¿Estás seguro de eliminar esta talla?')) {
+                    // Si la talla no tiene ID (es nueva), simplemente eliminarla del DOM
+                    const idInput = tallaForm.querySelector('input[name$="-id"]');
+                    if (!idInput || !idInput.value) {
+                        tallaForm.remove();
+                        // Actualizar el contador
+                        const totalForms = document.querySelector('input[name="tallas-TOTAL_FORMS"]');
+                        if (totalForms) {
+                            totalForms.value = parseInt(totalForms.value) - 1;
+                        }
+                    } else {
+                        // Si ya existe en la BD, marcarla para eliminación
+                        deleteCheckbox.checked = true;
+                        tallaForm.style.display = 'none';
+                    }
                 }
-            })
-            .then(function(response) {
-                if (!response.ok) {
-                    throw new Error('Error en la respuesta del servidor');
-                }
-                return response.json();
-            })
-            .then(function(data) {
-                // Restaurar botón
-                newBtn.disabled = false;
-                newBtn.innerHTML = originalText;
-                
-                // Mostrar mensaje
-                if (data.success) {
-                    alert('Cambios aplicados correctamente');
-                    // Recargar la página para ver los cambios
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + (data.error || 'Error al aplicar cambios'));
-                }
-            })
-            .catch(function(error) {
-                console.error('Error:', error);
-                // Restaurar botón
-                newBtn.disabled = false;
-                newBtn.innerHTML = originalText;
-                alert('Error: ' + error.message);
             });
+            
+            // Añadir botón a la talla
+            tallaForm.querySelector('td:last-child').appendChild(btnEliminar);
         });
     }
     
-    /**
-     * Configura el botón Guardar y salir
-     */
-    function configureGuardarButton(btn, form) {
-        // Eliminar todos los event listeners existentes
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
+    // Ejecutar la conversión cuando carga la página
+    convertirCheckboxesEnBotones();
+    
+    // Botón para añadir talla - utilizando un manejador único
+    const btnAddTalla = document.getElementById('add-talla');
+    if (btnAddTalla) {
+        // Remover eventos anteriores para evitar duplicación
+        const newBtn = btnAddTalla.cloneNode(true);
+        btnAddTalla.parentNode.replaceChild(newBtn, btnAddTalla);
         
-        // Añadir nuevo event listener
-        newBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Click en botón Guardar y salir');
+        newBtn.addEventListener('click', function() {
+            // Obtener formset para tallas
+            const tallaFormset = document.getElementById('tallas-container');
+            const totalForms = document.querySelector('input[name="tallas-TOTAL_FORMS"]');
             
-            // Añadir campo de redirección
-            let input = form.querySelector('input[name="redirigir"]');
-            if (!input) {
-                input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'redirigir';
-                form.appendChild(input);
+            if (!tallaFormset || !totalForms) {
+                console.error('No se encontraron elementos necesarios para añadir talla');
+                return;
             }
-            input.value = 'true';
             
-            // Mostrar indicador de carga
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+            // Obtener total actual de formularios
+            const formCount = parseInt(totalForms.value);
             
-            // Enviar formulario después de un pequeño retraso
-            setTimeout(function() {
-                form.submit();
-            }, 100);
+            // Obtener template de la primera talla (como base)
+            const tallaTemplate = tallaFormset.querySelector('.talla-form');
+            if (!tallaTemplate) {
+                console.error('No se encontró template para talla');
+                return;
+            }
+            
+            // Clonar template
+            const newTalla = tallaTemplate.cloneNode(true);
+            
+            // Remover botón eliminar existente (si lo hay)
+            const oldBtn = newTalla.querySelector('.btn-eliminar-talla');
+            if (oldBtn) oldBtn.remove();
+            
+            // Actualizar IDs y nombres
+            const inputs = newTalla.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                const name = input.getAttribute('name');
+                if (name) {
+                    // Reemplazar índice en el nombre e ID
+                    const newName = name.replace(/tallas-\d+/, `tallas-${formCount}`);
+                    input.setAttribute('name', newName);
+                    
+                    const id = input.getAttribute('id');
+                    if (id) {
+                        const newId = id.replace(/id_tallas-\d+/, `id_tallas-${formCount}`);
+                        input.setAttribute('id', newId);
+                    }
+                }
+                
+                // Limpiar valores
+                if (input.type !== 'checkbox' && input.type !== 'hidden') {
+                    input.value = '';
+                } else if (input.type === 'checkbox') {
+                    input.checked = false;
+                }
+            });
+            
+            // Actualizar labels
+            const labels = newTalla.querySelectorAll('label');
+            labels.forEach(label => {
+                const forAttr = label.getAttribute('for');
+                if (forAttr) {
+                    const newFor = forAttr.replace(/id_tallas-\d+/, `id_tallas-${formCount}`);
+                    label.setAttribute('for', newFor);
+                }
+            });
+            
+            // Añadir al contenedor
+            tallaFormset.appendChild(newTalla);
+            
+            // Actualizar contador
+            totalForms.value = formCount + 1;
+            
+            // Convertir checkbox a botón en la nueva talla
+            convertirCheckboxesEnBotones();
         });
     }
+    
+    // Botón para añadir imagen
+    const btnAddImagen = document.getElementById('add-imagen');
+    if (btnAddImagen) {
+        // Remover eventos anteriores para evitar duplicación
+        const newBtnImg = btnAddImagen.cloneNode(true);
+        btnAddImagen.parentNode.replaceChild(newBtnImg, btnAddImagen);
+        
+        newBtnImg.addEventListener('click', function() {
+            // Obtener formset para imágenes
+            const imagenesContainer = document.getElementById('imagenes-container');
+            const totalForms = document.querySelector('input[name="imagenes-TOTAL_FORMS"]');
+            
+            if (!imagenesContainer || !totalForms) {
+                console.error('No se encontraron elementos necesarios para añadir imagen');
+                return;
+            }
+            
+            // Obtener total actual de formularios
+            const formCount = parseInt(totalForms.value);
+            
+            // Crear nuevo formulario de imagen
+            const newImagen = document.createElement('div');
+            newImagen.className = 'imagen-form col-md-4 mb-4';
+            newImagen.id = `imagenes-${formCount}`;
+            
+            // HTML para el nuevo formulario de imagen
+            newImagen.innerHTML = `
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Imagen nueva</span>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" name="imagenes-${formCount}-id" id="id_imagenes-${formCount}-id">
+                        <input type="hidden" name="imagenes-${formCount}-DELETE" id="id_imagenes-${formCount}-DELETE">
+                
+                <div class="mb-3">
+                    <label for="id_imagenes-${formCount}-imagen" class="form-label">Imagen</label>
+                    <input type="file" name="imagenes-${formCount}-imagen" class="form-control" id="id_imagenes-${formCount}-imagen" accept="image/*">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="id_imagenes-${formCount}-orden" class="form-label">Orden</label>
+                    <input type="number" name="imagenes-${formCount}-orden" class="form-control" id="id_imagenes-${formCount}-orden" value="${Date.now() % 10000}">
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input type="checkbox" name="imagenes-${formCount}-es_principal" class="form-check-input" id="id_imagenes-${formCount}-es_principal">
+                    <label for="id_imagenes-${formCount}-es_principal" class="form-check-label">Es imagen principal</label>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="id_imagenes-${formCount}-titulo" class="form-label">Título (opcional)</label>
+                    <input type="text" name="imagenes-${formCount}-titulo" class="form-control" id="id_imagenes-${formCount}-titulo" placeholder="Título descriptivo para SEO y accesibilidad">
+                </div>
+                
+                <div class="card-footer text-center">
+                        <button type="button" class="btn btn-danger btn-eliminar-imagen">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Añadir al contenedor
+            imagenesContainer.appendChild(newImagen);
+            
+            // Actualizar contador
+            totalForms.value = formCount + 1;
+            
+            // Añadir event listener para el botón de eliminar
+            const btnEliminar = newImagen.querySelector('.btn-eliminar-imagen');
+            if (btnEliminar) {
+                btnEliminar.addEventListener('click', function() {
+                    if (confirm('¿Estás seguro de eliminar esta imagen?')) {
+                        newImagen.remove();
+                        // Actualizar el contador
+                        totalForms.value = parseInt(totalForms.value) - 1;
+                    }
+                });
+            }
+        });
+    }
+    
+    // Manejar botones existentes para eliminar imágenes
+    document.querySelectorAll('.btn-eliminar-imagen').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const imagenForm = this.closest('.imagen-form');
+            if (!imagenForm) return;
+            
+            if (confirm('¿Estás seguro de eliminar esta imagen?')) {
+                const index = imagenForm.id.split('-')[1];
+                const deleteInput = document.getElementById(`id_imagenes-${index}-DELETE`);
+                
+                if (deleteInput) {
+                    // Marcar para eliminación
+                    deleteInput.value = 'on';
+                    // Ocultar visualmente
+                    imagenForm.style.display = 'none';
+                }
+            }
+        });
+    });
 });

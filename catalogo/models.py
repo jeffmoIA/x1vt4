@@ -237,13 +237,7 @@ class ImagenProducto(models.Model):
         ordering = ['orden', '-es_principal']  # Ordenar primero por orden, luego principal
         verbose_name = "Imagen de producto"
         verbose_name_plural = "Imágenes de productos"
-        constraints = [
-            # Limitar a 10 imágenes por producto a nivel de base de datos
-            models.UniqueConstraint(
-                fields=['producto', 'orden'],
-                name='unique_product_image_order'
-            ),
-        ]
+        # Eliminamos la constraint para evitar errores al guardar imágenes con el mismo orden
     
     def __str__(self):
         """Representación legible del objeto"""
