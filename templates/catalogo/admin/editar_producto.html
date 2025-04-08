@@ -35,6 +35,40 @@
         justify-content: center;
         z-index: 10;
     }
+     /* Estilos para la gestión de marcas */
+     .marca-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: #ccc #f8f9fa;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #ccc;
+        border-radius: 4px;
+    }
+    
+    /* Animación suave para eliminar marcas */
+    .list-group-item {
+        transition: all 0.3s ease;
+    }
+    
+    /* Efecto hover para las marcas */
+    .list-group-item:hover {
+        background-color: #f8f9fa;
+    }
 </style>
 
 <div class="container mt-4">
@@ -187,14 +221,16 @@
                                 </button>
                             </div>
                         </div>
-                        
-                        <div class="d-flex justify-content-between">
-                            <a href="{% url 'catalogo:admin_lista_productos' %}" class="btn btn-secondary">Cancelar</a>
-                            <div>
-                                <button type="button" id="btn-aplicar-cambios" class="btn btn-info me-2">
-                                    <i class="fas fa-check-circle"></i> Aplicar cambios
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'catalogo:admin_lista_productos' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <div class="btn-group">
+                                <button type="button" id="btn-aplicar-cambios" class="btn btn-info">
+                                    <i class="fas fa-sync-alt"></i> Aplicar cambios
                                 </button>
-                                <button type="button" id="btn-guardar-salir" class="btn btn-primary">
+                                <button type="button" id="btn-guardar-salir" class="btn btn-success">
                                     <i class="fas fa-save"></i> Guardar y salir
                                 </button>
                             </div>
@@ -205,30 +241,46 @@
                     <div class="modal fade" id="gestionMarcasModal" tabindex="-1" aria-labelledby="gestionMarcasModalLabel">
                         <div class="modal-dialog">
                             <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="gestionMarcasModalLabel">Gestionar Marcas</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                <div class="modal-header bg-primary text-white">
+                                    <h5 class="modal-title" id="gestionMarcasModalLabel">
+                                        <i class="fas fa-tags me-2"></i>Gestionar Marcas
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
                                     <!-- Formulario de nueva marca -->
-                                    <div class="mb-3">
-                                        <label class="form-label">Añadir nueva marca</label>
-                                        <div class="input-group">
-                                            <input type="text" id="nuevaMarcaNombre" class="form-control" placeholder="Nombre de la marca">
-                                            <button type="button" class="btn btn-primary" id="btnAnadirMarca">Añadir</button>
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Añadir nueva marca</h6>
                                         </div>
-                                        <div class="invalid-feedback" id="nuevaMarcaFeedback"></div>
+                                        <div class="card-body">
+                                            <div class="input-group">
+                                                <input type="text" id="nuevaMarcaNombre" class="form-control" 
+                                                       placeholder="Nombre de la marca" autocomplete="off">
+                                                <button type="button" class="btn btn-primary" id="btnAnadirMarca">
+                                                    <i class="fas fa-plus"></i> Añadir
+                                                </button>
+                                            </div>
+                                            <div class="invalid-feedback d-none" id="nuevaMarcaFeedback"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Buscador de marcas -->
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text bg-light">
+                                            <i class="fas fa-search"></i>
+                                        </span>
+                                        <input type="text" id="buscadorMarcas" class="form-control" 
+                                               placeholder="Buscar marca..." autocomplete="off">
                                     </div>
                                     
                                     <!-- Lista de marcas existentes -->
-                                    <div>
-                                        <h6>Marcas existentes</h6>
-                                        <div id="listaMarcasExistentes" class="list-group">
-                                            <!-- Se cargará dinámicamente -->
-                                            <div class="text-center p-3">
-                                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                                <span class="ms-2">Cargando marcas...</span>
-                                            </div>
+                                    <h6>Marcas existentes</h6>
+                                    <div id="listaMarcasExistentes" class="marca-list custom-scrollbar">
+                                        <!-- Se cargará dinámicamente -->
+                                        <div class="text-center p-3">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                            <span class="ms-2">Cargando marcas...</span>
                                         </div>
                                     </div>
                                 </div>
@@ -237,7 +289,7 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </div>  
                 </div>
             </div>
         </div>
@@ -246,49 +298,200 @@
 {% block extra_js %}
 <script src="{% static 'js/producto/botones_fix.js' %}"></script>
 <script src="{% static 'js/producto/marcas_manager.js' %}"></script>
+<script src="{% static 'js/producto/busqueda_marcas.js' %}"></script>
 <script>
+
     document.addEventListener('DOMContentLoaded', function() {
-        // Botones principales del formulario
+        // Obtener referencias a los botones y al formulario
         const btnAplicarCambios = document.getElementById('btn-aplicar-cambios');
         const btnGuardarSalir = document.getElementById('btn-guardar-salir');
         const formulario = document.getElementById('producto-form');
         
-        // Gestionar el evento de aplicar cambios
+        // Función para añadir un campo oculto al formulario
+        function agregarCampoOculto(nombre, valor) {
+            // Eliminar campo existente si lo hay para evitar duplicados
+            const campoExistente = formulario.querySelector(`input[name="${nombre}"]`);
+            if (campoExistente) {
+                campoExistente.remove();
+            }
+            
+            // Crear nuevo campo
+            const campo = document.createElement('input');
+            campo.type = 'hidden';
+            campo.name = nombre;
+            campo.value = valor;
+            formulario.appendChild(campo);
+        }
+        
+        // Gestionar el evento de aplicar cambios - sin redirección
         if (btnAplicarCambios) {
             btnAplicarCambios.addEventListener('click', function(e) {
                 e.preventDefault();
-                console.log('Aplicando cambios...');
+                console.log('Aplicando cambios sin redirección...');
                 
-                // Crear campo para indicar que queremos aplicar cambios sin redirección
-                const inputAplicar = document.createElement('input');
-                inputAplicar.type = 'hidden';
-                inputAplicar.name = 'aplicar_cambios';
-                inputAplicar.value = 'true';
-                formulario.appendChild(inputAplicar);
+                // Añadir campo oculto para indicar que es "aplicar cambios"
+                agregarCampoOculto('aplicar_cambios', 'true');
                 
                 // Enviar formulario
                 formulario.submit();
             });
         }
         
-        // Gestionar el evento de guardar y salir
+        // Gestionar el evento de guardar y salir - con redirección
         if (btnGuardarSalir) {
             btnGuardarSalir.addEventListener('click', function(e) {
                 e.preventDefault();
-                console.log('Guardando y saliendo...');
+                console.log('Guardando y saliendo con redirección...');
                 
-                // Crear campo para indicar que queremos redirección
-                const inputRedirigir = document.createElement('input');
-                inputRedirigir.type = 'hidden';
-                inputRedirigir.name = 'redirigir';
-                inputRedirigir.value = 'true';
-                formulario.appendChild(inputRedirigir);
+                // Añadir campo oculto para indicar redirección
+                agregarCampoOculto('redirigir', 'true');
                 
                 // Enviar formulario
                 formulario.submit();
             });
         }
+
+        // Script para manejar el botón de añadir talla
+        const addTallaButton = document.querySelector('button#add-talla, button.talla-add-btn');
+        const tallasContainer = document.getElementById('tallas-container');
+
+        if (addTallaButton && tallasContainer) {
+            addTallaButton.addEventListener('click', function() {
+                // Buscar el campo de TOTAL_FORMS
+                const totalForms = document.querySelector('[name="tallas-TOTAL_FORMS"]');
+                if (!totalForms) {
+                    console.error('No se encontró el contador de formularios de tallas');
+                    return;
+                }
+                
+                // Obtener el formulario vacío
+                const emptyForm = document.querySelector('.talla-form');
+                if (!emptyForm) {
+                    console.error('No se encontró una plantilla de formulario de talla');
+                    return;
+                }
+                
+                // Actualizar el contador
+                const formCount = parseInt(totalForms.value);
+                
+                // Crear clon del formulario
+                const newRow = emptyForm.cloneNode(true);
+                
+                // Actualizar índices en el HTML
+                newRow.innerHTML = newRow.innerHTML
+                    .replace(/tallas-0-/g, `tallas-${formCount}-`)
+                    .replace(/tallas_0_/g, `tallas_${formCount}_`);
+                
+                // Limpiar valores
+                newRow.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
+                    input.value = '';
+                });
+                
+                // Establecer checkbox a su valor predeterminado (marcado)
+                newRow.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+                
+                // Añadir botón eliminar si no existe
+                const tdEliminar = newRow.querySelector('td:last-child');
+                if (tdEliminar && !tdEliminar.querySelector('.btn-eliminar')) {
+                    const btnEliminar = document.createElement('button');
+                    btnEliminar.type = 'button';
+                    btnEliminar.className = 'btn btn-sm btn-danger btn-eliminar';
+                    btnEliminar.innerHTML = '<i class="fas fa-trash"></i>';
+                    btnEliminar.onclick = function() {
+                        this.closest('tr').remove();
+                        // Actualizar contador de formularios
+                        totalForms.value = parseInt(totalForms.value) - 1;
+                    };
+                    tdEliminar.appendChild(btnEliminar);
+                }
+                
+                // Añadir el nuevo formulario
+                tallasContainer.appendChild(newRow);
+                
+                // Incrementar contador
+                totalForms.value = formCount + 1;
+                
+                console.log('Talla añadida correctamente');
+            });
+        }
+
     });
+    // Feedback visual al guardar
+    btnAplicarCambios.addEventListener('click', function() {
+        // Mostrar indicador de guardado
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aplicando...';
+        this.disabled = true;
+        
+        // Restaurar después de 2 segundos si hay error
+        setTimeout(() => {
+            if (this.disabled) {
+                this.innerHTML = '<i class="fas fa-sync-alt"></i> Aplicar cambios';
+                this.disabled = false;
+            }
+        }, 2000);
+    });
+
+    // Lo mismo para guardar y salir
+    btnGuardarSalir.addEventListener('click', function() {
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            this.disabled = true;
+        });
+        // Lo mismo para guardar y salir
+    btnGuardarSalir.addEventListener('click', function() {
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        this.disabled = true;
+    });
+
+    // Funcionalidad para añadir tallas
+    const addTallaBtn = document.getElementById('add-talla');
+    const tallasContainer = document.getElementById('tallas-container');
+
+    if (addTallaBtn && tallasContainer) {
+        addTallaBtn.addEventListener('click', function() {
+            // Obtener total de formularios actual
+            const totalFormsInput = document.querySelector('#id_tallas-TOTAL_FORMS');
+            if (!totalFormsInput) {
+                console.error('No se encontró el campo TOTAL_FORMS');
+                return;
+            }
+            
+            // Número actual de formularios
+            const formCount = parseInt(totalFormsInput.value);
+            
+            // Obtener formulario vacío (primera fila)
+            const emptyForm = document.querySelector('.talla-form');
+            if (!emptyForm) {
+                console.error('No se encontró la plantilla de talla');
+                return;
+            }
+            
+            // Crear clon del formulario
+            const newForm = emptyForm.cloneNode(true);
+            
+            // Actualizar IDs y nombres
+            newForm.innerHTML = newForm.innerHTML
+                .replace(/tallas-0-/g, `tallas-${formCount}-`)
+                .replace(/tallas_0_/g, `tallas_${formCount}_`);
+            
+            // Limpiar valores
+            newForm.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
+                input.value = '';
+            });
+            newForm.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = true; // Por defecto disponible
+            });
+            
+            // Incrementar contador
+            totalFormsInput.value = formCount + 1;
+            
+            // Añadir el nuevo formulario
+            tallasContainer.appendChild(newForm);
+            
+            console.log('Nueva talla añadida');
+        });
+    }
 </script>
 {% endblock %}
 {% endblock %}
