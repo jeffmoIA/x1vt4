@@ -79,7 +79,8 @@ ImagenFormSet = inlineformset_factory(
         }),
         'orden': forms.NumberInput(attrs={
             'class': 'form-control', 
-            'min': '0'
+            'min': '1',
+            'value': '1'
         }),
         'es_principal': forms.CheckboxInput(attrs={
             'class': 'principal-checkbox'

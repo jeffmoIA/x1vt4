@@ -1,7 +1,32 @@
 {% extends 'base/base.html' %}
 {% load static %}
 {% load crispy_forms_tags %}
-
+{% block page_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/producto/imagen_fix.css' %}">
+<style>
+    /* Mejora visual del checkbox "Es imagen principal" */
+    input[name*="es_principal"] {
+      width: 20px !important;
+      height: 20px !important;
+      border: 2px solid #0d6efd;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    input[name*="es_principal"]:checked {
+      background-color: #0d6efd;
+      box-shadow: 0 0 5px rgba(13, 110, 253, 0.5);
+    }
+    
+    .form-check label {
+      font-weight: bold;
+      color: #0d6efd;
+      margin-left: 5px;
+      font-size: 1.1em;
+    }
+  </style>
+{% endblock %}
 {% block title %}Crear Producto{% endblock %}
 
 {% block content %}
@@ -118,8 +143,12 @@
                                                     </div>
                                                     
                                                     <div class="form-check mb-3">
-                                                        {{ imagen_form.es_principal }}
-                                                        <label for="{{ imagen_form.es_principal.id_for_label }}" class="form-check-label">
+                                                        <input type="checkbox" 
+                                                               class="form-check-input custom-principal-checkbox" 
+                                                               id="{{ imagen_form.es_principal.id_for_label }}" 
+                                                               name="{{ imagen_form.es_principal.html_name }}"
+                                                               {% if imagen_form.es_principal.value %}checked{% endif %}>
+                                                        <label class="form-check-label fw-bold" for="{{ imagen_form.es_principal.id_for_label }}">
                                                             Es imagen principal
                                                         </label>
                                                     </div>
@@ -526,5 +555,95 @@
         
         console.log('Script de gestión de productos inicializado correctamente');
     });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Función para renumerar todos los campos de orden
+            function renumerarOrden() {
+                const contenedor = document.getElementById('imagenes-container');
+                if (!contenedor) return;
+                
+                // Obtener todos los formularios de imágenes
+                const formularios = contenedor.querySelectorAll('.imagen-form');
+                
+                // Si no hay formularios, no hay nada que hacer
+                if (formularios.length === 0) return;
+                
+                // Renumerar cada formulario
+                formularios.forEach(function(form, index) {
+                    const inputOrden = form.querySelector('input[name*="-orden"]');
+                    if (inputOrden) {
+                        inputOrden.value = index + 1; // Empezamos desde 1
+                    }
+                });
+            }
+            
+            // Ejecutar al cargar la página
+            renumerarOrden();
+            
+            // Configurar el botón de añadir imagen
+            const btnAñadir = document.getElementById('add-imagen');
+            if (btnAñadir) {
+                btnAñadir.addEventListener('click', function() {
+                    // Usar setTimeout para esperar a que se cree el formulario
+                    setTimeout(renumerarOrden, 100);
+                });
+            }
+            
+            // Configurar los botones de eliminar en formularios existentes
+            function configurarBotonesEliminar() {
+                document.querySelectorAll('.btn-eliminar-imagen').forEach(function(btn) {
+                    // Remover eventos existentes
+                    const nuevoBtn = btn.cloneNode(true);
+                    if (btn.parentNode) {
+                        btn.parentNode.replaceChild(nuevoBtn, btn);
+                    }
+                    
+                    // Agregar nuevo evento
+                    nuevoBtn.addEventListener('click', function() {
+                        // Encontrar y eliminar el contenedor del formulario
+                        const formContainer = this.closest('.imagen-form');
+                        if (formContainer && formContainer.parentNode) {
+                            formContainer.parentNode.removeChild(formContainer);
+                            // Renumerar después de eliminar
+                            renumerarOrden();
+                        }
+                    });
+                });
+            }
+            
+            // Configurar botones existentes
+            configurarBotonesEliminar();
+            
+            // Añadir un observador de mutación para capturar nuevos botones de eliminar
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+                        // Buscar nuevos botones dentro de los nodos añadidos
+                        for (let i = 0; i < mutation.addedNodes.length; i++) {
+                            const node = mutation.addedNodes[i];
+                            if (node.nodeType === 1 && node.classList && node.classList.contains('imagen-form')) {
+                                const nuevoBtn = node.querySelector('.btn-eliminar-imagen');
+                                if (nuevoBtn) {
+                                    nuevoBtn.addEventListener('click', function() {
+                                        const formContainer = this.closest('.imagen-form');
+                                        if (formContainer && formContainer.parentNode) {
+                                            formContainer.parentNode.removeChild(formContainer);
+                                            renumerarOrden();
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Iniciar observación del contenedor
+            const contenedor = document.getElementById('imagenes-container');
+            if (contenedor) {
+                observer.observe(contenedor, { childList: true, subtree: true });
+            }
+        });
     </script>
 {% endblock %}
