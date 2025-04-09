@@ -41,49 +41,41 @@ def admin_lista_productos(request):
 @login_required
 @user_passes_test(es_admin)
 def crear_producto(request):
-    """
-    Vista para crear un nuevo producto con template específico
-    """
     if request.method == 'POST':
+        # Depuración
+        print("FILES:", request.FILES)
+        
         form = ProductoForm(request.POST, request.FILES)
         talla_formset = TallaFormSet(request.POST, prefix='tallas')
         imagen_formset = ImagenFormSet(request.POST, request.FILES, prefix='imagenes')
         
-        # Validar formulario principal
-        if form.is_valid():
-            # Guardar producto primero para obtener un ID
-            producto = form.save(commit=True)
-            
-            # Asignar el producto a los formsets
+        # Validar formularios
+        form_valid = form.is_valid()
+        tallas_valid = talla_formset.is_valid() 
+        imagenes_valid = imagen_formset.is_valid()
+        
+        print(f"Principal: {form_valid}, Tallas: {tallas_valid}, Imágenes: {imagenes_valid}")
+        
+        if form_valid and tallas_valid and imagenes_valid:
+            producto = form.save()
             talla_formset.instance = producto
             imagen_formset.instance = producto
+            talla_formset.save()
+            imagen_formset.save()
             
-            # Validar formsets de tallas e imágenes
-            tallas_valid = talla_formset.is_valid()
-            imagenes_valid = imagen_formset.is_valid()
-            
-            # Si ambos formsets son válidos, guardarlos
-            if tallas_valid and imagenes_valid:
-                talla_formset.save()
-                imagen_formset.save()
-                
-                messages.success(request, f'Producto "{producto.nombre}" creado exitosamente')
-                return redirect('catalogo:admin_lista_productos')
-            else:
-                # Errores en los formsets
-                if not tallas_valid:
-                    messages.error(request, 'Hay errores en las tallas')
-                if not imagenes_valid:
-                    messages.error(request, 'Hay errores en las imágenes')
+            messages.success(request, f'Producto "{producto.nombre}" creado correctamente')
+            return redirect('catalogo:admin_lista_productos')
         else:
-            messages.error(request, 'Por favor, corrige los errores en el formulario principal')
+            # Mostrar errores
+            print("Errores en el formulario principal:", form.errors)
+            print("Errores en imágenes:", imagen_formset.errors)
+            for i, f in enumerate(imagen_formset):
+                print(f"Formulario {i}:", f.errors)
     else:
-        # Para solicitudes GET, mostrar formularios vacíos
         form = ProductoForm()
         talla_formset = TallaFormSet(prefix='tallas')
         imagen_formset = ImagenFormSet(prefix='imagenes')
     
-    # Renderizar plantilla específica para crear producto
     return render(request, 'catalogo/admin/crear_producto.html', {
         'form': form,
         'talla_formset': talla_formset,

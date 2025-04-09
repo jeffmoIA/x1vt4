@@ -154,7 +154,8 @@ def validate_image_size(image):
     """
     # Limitar el tamaño de la imagen a 5MB
     max_size = 5 * 1024 * 1024  # 5MB en bytes
-    if image.size > max_size:
+    # Verificar que la imagen tiene un tamaño
+    if hasattr(image, 'size') and image.size > max_size:
         raise ValidationError(f'La imagen es demasiado grande. El tamaño máximo permitido es 5MB.')
 
 class ImagenProducto(models.Model):
