@@ -111,24 +111,6 @@
 
 {% block extra_js %}
 <script>
-
-    // Script de diagnóstico
-document.addEventListener('DOMContentLoaded', function() {
-    // Imprimir todas las bibliotecas cargadas
-    console.log('-------- DIAGNÓSTICO DE BIBLIOTECAS --------');
-    console.log('jQuery:', typeof jQuery !== 'undefined' ? jQuery.fn.jquery : 'No cargado');
-    console.log('DataTables:', typeof jQuery !== 'undefined' && typeof jQuery.fn.DataTable !== 'undefined' ? 'Cargado' : 'No cargado');
-    console.log('Bootstrap:', typeof bootstrap !== 'undefined' ? 'Cargado' : 'No cargado');
-    console.log('Toastr:', typeof toastr !== 'undefined' ? 'Cargado' : 'No cargado');
-    console.log('----------------------------------------');
-    
-    // Listar todos los scripts cargados
-    console.log('Scripts cargados:');
-    document.querySelectorAll('script').forEach(function(script, index) {
-        console.log(index + ':', script.src || 'Script inline');
-    });
-});
-
     document.addEventListener('DOMContentLoaded', function() {
         console.log("Verificando jQuery:", typeof jQuery !== 'undefined' ? 'Disponible' : 'No disponible');
         console.log("Verificando DataTables:", typeof $.fn.DataTable !== 'undefined' ? 'Disponible' : 'No disponible');
@@ -162,10 +144,16 @@ document.addEventListener('DOMContentLoaded', function() {
                             "X-CSRFToken": getCookie('csrftoken')
                         },
                         data: function(d) {
+                            // Añadir parámetros de filtro a la solicitud AJAX
                             d.categoria_id = filtroCategoria;
                             d.marca_id = filtroMarca;
                             d.disponibilidad = filtroDisponibilidad;
-                            d._timestamp = new Date().getTime();
+                            d._timestamp = new Date().getTime(); // Evitar caché
+                            console.log("Enviando filtros:", {
+                                categoria_id: filtroCategoria,
+                                marca_id: filtroMarca,
+                                disponibilidad: filtroDisponibilidad
+                            });
                             return d;
                         }
                     },
@@ -200,18 +188,53 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Configurar eventos para filtros
                 $('#aplicar-filtros').on('click', function() {
+                    // Obtener valores actuales de los filtros
                     filtroCategoria = $('#filtro-categoria').val();
                     filtroMarca = $('#filtro-marca').val();
                     filtroDisponibilidad = $('#filtro-disponibilidad').val();
+                    
+                    console.log("Aplicando filtros:", {
+                        categoria: filtroCategoria,
+                        marca: filtroMarca,
+                        disponibilidad: filtroDisponibilidad
+                    });
+                    
+                    // Añadir clases visuales a los selectores con filtros activos
+                    $('#filtro-categoria, #filtro-marca, #filtro-disponibilidad').removeClass('filter-active');
+                    if (filtroCategoria) $('#filtro-categoria').addClass('filter-active');
+                    if (filtroMarca) $('#filtro-marca').addClass('filter-active');
+                    if (filtroDisponibilidad) $('#filtro-disponibilidad').addClass('filter-active');
+                    
+                    // Recargar la tabla con los nuevos filtros
                     productosTable.ajax.reload();
+                    
+                    // Mostrar notificación
+                    if (typeof toastr !== 'undefined') {
+                        toastr.info('Filtros aplicados correctamente');
+                    }
                 });
                 
                 $('#limpiar-filtros').on('click', function() {
+                    // Limpiar los valores de los filtros en la UI
                     $('#filtro-categoria, #filtro-marca, #filtro-disponibilidad').val('');
+                    
+                    // Eliminar clases visuales de filtros activos
+                    $('#filtro-categoria, #filtro-marca, #filtro-disponibilidad').removeClass('filter-active');
+                    
+                    // Reiniciar las variables de filtro
                     filtroCategoria = '';
                     filtroMarca = '';
                     filtroDisponibilidad = '';
+                    
+                    console.log("Filtros limpiados");
+                    
+                    // Recargar la tabla sin filtros
                     productosTable.ajax.reload();
+                    
+                    // Mostrar notificación
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success('Filtros restablecidos');
+                    }
                 });
             }
         } catch (error) {
@@ -239,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return cookieValue;
     }
-    </script>
+</script>
 {% endblock %}
 {% block page_css %}
 {{ block.super }}

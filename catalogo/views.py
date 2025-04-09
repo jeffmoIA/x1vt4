@@ -310,8 +310,6 @@ def admin_productos_data(request):
     Vista para procesar solicitudes AJAX de DataTables y devolver datos de productos 
     paginados con soporte para filtrado por categoría y marca.
     """
-    import time
-    
     try:
         # Obtener los parámetros enviados por DataTables
         draw = int(request.POST.get('draw', 1))  # Contador de solicitudes
@@ -319,7 +317,7 @@ def admin_productos_data(request):
         length = int(request.POST.get('length', 10))  # Cantidad de registros a mostrar
         search_value = request.POST.get('search[value]', '')  # Valor de búsqueda
         
-        # Parámetros de filtros personalizados
+        # Parámetros de filtros personalizados - Corregido para manejar diferentes métodos de envío
         categoria_id = request.POST.get('categoria_id', '')
         marca_id = request.POST.get('marca_id', '')
         disponibilidad = request.POST.get('disponibilidad', '')
@@ -348,11 +346,11 @@ def admin_productos_data(request):
         # Consulta base - todos los productos con sus relaciones
         queryset = Producto.objects.all().select_related('categoria', 'marca').prefetch_related('imagenes')
         
-        # Aplicar filtros personalizados
-        if categoria_id:
+        # Aplicar filtros personalizados - Mejorado el manejo de filtros
+        if categoria_id and categoria_id != '':
             queryset = queryset.filter(categoria_id=categoria_id)
             
-        if marca_id:
+        if marca_id and marca_id != '':
             queryset = queryset.filter(marca_id=marca_id)
             
         if disponibilidad in ['0', '1']:
