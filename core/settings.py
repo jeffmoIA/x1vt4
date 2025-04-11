@@ -26,22 +26,7 @@ SECRET_KEY = 'django-insecure-kudl3o#czu*ez4_p6h86_6dod@8fr$zc3h@y9t6t&cwgoeu#wt
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        'django.request': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    },
-}
+
 ALLOWED_HOSTS = []
 
 # Configuración para archivos de medios
@@ -49,6 +34,8 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Application definition
+# Debug Toolbar - solo en desarrollo
+DEBUG_TOOLBAR = DEBUG
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -64,14 +51,18 @@ INSTALLED_APPS = [
     'carrito',
     'pedidos',
     # bibliotecas de terceros
-    'debug_toolbar',
     'crispy_forms',
     'crispy_bootstrap5',
     'django_filters',
     'imagekit',
     'django_cleanup',
-    
 ]
+
+# Añadir debug_toolbar solo si está activo
+if DEBUG_TOOLBAR:
+    INSTALLED_APPS += ['debug_toolbar']
+
+# Middleware base
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -80,11 +71,17 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware', 
+    'core.middleware.LoginRateLimitMiddleware',
+    'core.middleware.SecurityHeadersMiddleware',
+    'core.middleware.SecurityAuditMiddleware',
 ]
 
+# Añadir middleware de debug_toolbar solo si está activo
+if DEBUG_TOOLBAR:
+    # Insertamos al inicio para evitar problemas con otros middlewares
+    MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+
 # Configuración para mostrar mensajes con Bootstrap
-# Esto mapea los tipos de mensajes de Django a las clases de alerta de Bootstrap
 MESSAGE_TAGS = {
     messages.DEBUG: 'alert-info',
     messages.INFO: 'alert-info',
@@ -129,12 +126,16 @@ DATABASES = {
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
+# Política de contraseñas más segura
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 10,  # Longitud mínima de contraseña
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -171,28 +172,105 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Configuración para Django Debug Toolbar
-INTERNAL_IPS = [
-    '127.0.0.1',  # Localhost IPv4
-    '::1',        # Localhost IPv6
-]
-
-# Configuración de los paneles que se muestran en Django Debug Toolbar
-DEBUG_TOOLBAR_PANELS = [
-    'debug_toolbar.panels.versions.VersionsPanel',
-    'debug_toolbar.panels.timer.TimerPanel',
-    'debug_toolbar.panels.settings.SettingsPanel',
-    'debug_toolbar.panels.headers.HeadersPanel',
-    'debug_toolbar.panels.request.RequestPanel',
-    'debug_toolbar.panels.sql.SQLPanel',
-    'debug_toolbar.panels.staticfiles.StaticFilesPanel',
-    'debug_toolbar.panels.templates.TemplatesPanel',
-    'debug_toolbar.panels.cache.CachePanel',
-    'debug_toolbar.panels.signals.SignalsPanel',
-    'debug_toolbar.panels.logging.LoggingPanel',
-    'debug_toolbar.panels.redirects.RedirectsPanel',
-    'debug_toolbar.panels.profiling.ProfilingPanel',
-]
+if DEBUG_TOOLBAR:
+    INTERNAL_IPS = [
+        '127.0.0.1',  # Localhost IPv4
+        '::1',        # Localhost IPv6
+    ]
+    
+    # Configuración de los paneles que se muestran en Django Debug Toolbar
+    DEBUG_TOOLBAR_PANELS = [
+        'debug_toolbar.panels.versions.VersionsPanel',
+        'debug_toolbar.panels.timer.TimerPanel',
+        'debug_toolbar.panels.settings.SettingsPanel',
+        'debug_toolbar.panels.headers.HeadersPanel',
+        'debug_toolbar.panels.request.RequestPanel',
+        'debug_toolbar.panels.sql.SQLPanel',
+        'debug_toolbar.panels.staticfiles.StaticFilesPanel',
+        'debug_toolbar.panels.templates.TemplatesPanel',
+        'debug_toolbar.panels.cache.CachePanel',
+        'debug_toolbar.panels.signals.SignalsPanel',
+        'debug_toolbar.panels.logging.LoggingPanel',
+        'debug_toolbar.panels.redirects.RedirectsPanel',
+        'debug_toolbar.panels.profiling.ProfilingPanel',
+    ]
 
 # Configuración de Crispy Forms
 CRISPY_ALLOWED_TEMPLATE_PACKS = 'bootstrap5'
 CRISPY_TEMPLATE_PACK = 'bootstrap5'
+
+# Configuraciones de seguridad
+SECURE_BROWSER_XSS_FILTER = True  # Activa el filtro XSS en navegadores modernos
+SECURE_CONTENT_TYPE_NOSNIFF = True  # Previene MIME-sniffing
+X_FRAME_OPTIONS = 'DENY'  # Evita que el sitio sea renderizado en un <frame>
+
+# Configuración para cookies
+SESSION_COOKIE_SECURE = False  # Cambiar a True en producción (requiere HTTPS)
+SESSION_COOKIE_HTTPONLY = True  # Previene acceso JS a la cookie de sesión
+CSRF_COOKIE_SECURE = False  # Cambiar a True en producción (requiere HTTPS)
+CSRF_COOKIE_HTTPONLY = True  # Previene acceso JS a la cookie CSRF
+
+# Tiempo de vigencia de la sesión (1 hora de inactividad)
+SESSION_COOKIE_AGE = 3600  # En segundos
+SESSION_SAVE_EVERY_REQUEST = True  # Actualiza contador en cada solicitud
+
+# Configuración de logging para seguridad
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose'
+        },
+        'file': {
+            'level': 'WARNING',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/mototienda.log'),
+            'formatter': 'verbose',
+        },
+        'security_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/security.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['security_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'mototienda.security': {
+            'handlers': ['security_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# Asegurar que existe el directorio para logs
+if not os.path.exists(os.path.join(BASE_DIR, 'logs')):
+    os.makedirs(os.path.join(BASE_DIR, 'logs'))

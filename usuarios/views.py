@@ -1,14 +1,14 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from .forms import RegistroUsuarioForm, PerfilForm
+from .forms import RegistroUsuarioFormSeguro, PerfilForm
 from .models import Perfil
 
 def registro(request):
     # Vista para el registro de nuevos usuarios
     if request.method == 'POST':
         # Si es una solicitud POST, procesar el formulario enviado
-        form = RegistroUsuarioForm(request.POST)
+        form = RegistroUsuarioFormSeguro(request.POST)
         if form.is_valid():
             # Guardar el usuario si los datos son válidos
             user = form.save()
@@ -20,7 +20,7 @@ def registro(request):
             return redirect('tienda:inicio')
     else:
         # Si es una solicitud GET, mostrar el formulario vacío
-        form = RegistroUsuarioForm()
+        form = RegistroUsuarioFormSeguro()
     # Renderizar la plantilla con el formulario
     return render(request, 'usuarios/registro.html', {'form': form})
 

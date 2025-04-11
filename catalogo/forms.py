@@ -17,6 +17,16 @@ class ProductoForm(forms.ModelForm):
             'disponible': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'imagen': forms.FileInput(attrs={'class': 'form-control'}),
         }
+    
+    def clean_nombre(self):
+        """Sanitiza el nombre del producto."""
+        nombre = self.cleaned_data.get('nombre')
+        return sanitize_input(nombre)
+    
+    def clean_descripcion(self):
+        """Sanitiza la descripción permitiendo HTML básico seguro."""
+        descripcion = self.cleaned_data.get('descripcion')
+        return sanitize_html(descripcion)
 
 # Definición del formset para tallas
 TallaFormSet = inlineformset_factory(
