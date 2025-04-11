@@ -9,10 +9,10 @@ from .models import Producto, Categoria, Marca, ImagenProducto
 from .forms import ProductoForm, TallaFormSet, ImagenFormSet
 from .filters import ProductoFilter
 import time
-from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from .models import Marca
 import os
+from django.views.decorators.csrf import csrf_exempt
 
 # Función auxiliar para verificar si el usuario es administrador
 def es_admin(user):
@@ -305,147 +305,170 @@ def productos_por_marca(request, marca_id):
     
 @login_required
 @user_passes_test(es_admin)
+@csrf_exempt
 def admin_productos_data(request):
-    """
-    Vista para procesar solicitudes AJAX de DataTables y devolver datos de productos 
-    paginados con soporte para filtrado por categoría y marca.
-    """
+    # Valores predeterminados
+    draw = 1
+    total_records = 0
+    total_records_filtered = 0
+    data = []
+        
     try:
-        # Obtener los parámetros enviados por DataTables
-        draw = int(request.POST.get('draw', 1))  # Contador de solicitudes
-        start = int(request.POST.get('start', 0))  # Inicio de la paginación
-        length = int(request.POST.get('length', 10))  # Cantidad de registros a mostrar
-        search_value = request.POST.get('search[value]', '')  # Valor de búsqueda
-        
-        # Parámetros de filtros personalizados - Corregido para manejar diferentes métodos de envío
-        categoria_id = request.POST.get('categoria_id', '')
-        marca_id = request.POST.get('marca_id', '')
-        disponibilidad = request.POST.get('disponibilidad', '')
-        
-        # Configuración de orden
-        order_column_index = request.POST.get('order[0][column]', '1')
-        order_dir = request.POST.get('order[0][dir]', 'asc')
-        
-        # Mapeo de índices de columna a campos de la base de datos
-        column_mapping = {
-            '0': 'id',
-            '1': 'nombre',
-            '2': 'precio',
-            '3': 'categoria__nombre',
-            '4': 'marca__nombre',
-            '5': 'stock',
-            '6': 'disponible'
-        }
-        # Obtener el nombre del campo según el índice
-        order_column = column_mapping.get(order_column_index, 'nombre')
-        
-        # Preparar el ordenamiento para orden descendente
-        if order_dir == 'desc':
-            order_column = f'-{order_column}'
-        
-        # Consulta base - todos los productos con sus relaciones
-        queryset = Producto.objects.all().select_related('categoria', 'marca').prefetch_related('imagenes')
-        
-        # Aplicar filtros personalizados - Mejorado el manejo de filtros
-        if categoria_id and categoria_id != '':
-            queryset = queryset.filter(categoria_id=categoria_id)
+        if request.method == 'POST':
+            # Obtener los parámetros enviados por DataTables
+            draw = int(request.POST.get('draw', 1))  # Contador de solicitudes
+            start = int(request.POST.get('start', 0))  # Inicio de la paginación
+            length = int(request.POST.get('length', 10))  # Cantidad de registros a mostrar
+            search_value = request.POST.get('search[value]', '')  # Valor de búsqueda
             
-        if marca_id and marca_id != '':
-            queryset = queryset.filter(marca_id=marca_id)
+            # Parámetros de filtros personalizados
+            categoria_id = request.POST.get('categoria_id', '')
+            marca_id = request.POST.get('marca_id', '')
+            disponibilidad = request.POST.get('disponibilidad', '')
             
-        if disponibilidad in ['0', '1']:
-            queryset = queryset.filter(disponible=(disponibilidad == '1'))
+            # Configuración de orden
+            order_column_index = request.POST.get('order[0][column]', '1')
+            order_dir = request.POST.get('order[0][dir]', 'asc')
+            
+            # Mapeo de índices de columna a campos de la base de datos
+            column_mapping = {
+                '0': 'id',
+                '1': 'nombre',
+                '2': 'precio',
+                '3': 'categoria__nombre',
+                '4': 'marca__nombre',
+                '5': 'stock',
+                '6': 'disponible'
+            }
+            # Obtener el nombre del campo según el índice
+            order_column = column_mapping.get(order_column_index, 'nombre')
+            
+            # Preparar el ordenamiento para orden descendente
+            if order_dir == 'desc':
+                order_column = f'-{order_column}'
+            
+            # Consulta base - todos los productos con sus relaciones
+            queryset = Producto.objects.all().select_related('categoria', 'marca').prefetch_related('imagenes')
+            
+            # Aplicar filtros personalizados
+            if categoria_id and categoria_id != '':
+                queryset = queryset.filter(categoria_id=categoria_id)
+                
+            if marca_id and marca_id != '':
+                queryset = queryset.filter(marca_id=marca_id)
+                
+            if disponibilidad in ['0', '1']:
+                queryset = queryset.filter(disponible=(disponibilidad == '1'))
+            
+            # Filtrar por término de búsqueda si existe
+            if search_value:
+                queryset = queryset.filter(
+                    Q(nombre__icontains=search_value) |
+                    Q(descripcion__icontains=search_value) |
+                    Q(categoria__nombre__icontains=search_value) |
+                    Q(marca__nombre__icontains=search_value)
+                )
+            
+            # Contar registros para la paginación
+            total_records = Producto.objects.count()  # Total sin filtrar
+            total_records_filtered = queryset.count()  # Total después de filtrar
+            
+            print(f"DEBUG: Productos filtrados: {total_records_filtered}")
+            
+            # Ordenar y paginar los resultados
+            queryset = queryset.order_by(order_column)[start:start + length]
+            
+            # Preparar los datos para la respuesta
+            data = []
+            for producto in queryset:
+                # Obtener URL de la miniatura optimizada
+                thumbnail_url = producto.get_thumbnail_url()
+                
+                # Estado de disponibilidad formateado como HTML
+                if producto.disponible:
+                    disponible_html = '<span class="badge bg-success">Sí</span>'
+                else:
+                    disponible_html = '<span class="badge bg-danger">No</span>'
+                
+                # URL de las acciones
+                editar_url = reverse('catalogo:editar_producto', args=[producto.id])
+                eliminar_url = reverse('catalogo:eliminar_producto', args=[producto.id])
+                
+                # Agregar HTML para previsualización de imagen
+                imagen_html = f'''
+                <div class="thumbnail-container" style="position: relative;">
+                    <img src="{thumbnail_url}" alt="{producto.nombre}" 
+                         width="60" height="60" class="img-thumbnail product-thumbnail"
+                         style="object-fit: cover;" 
+                         data-bs-toggle="tooltip" title="{producto.nombre}">
+                </div>
+                '''
+                
+                # Botones de acción
+                acciones_html = f'''
+                <div class="btn-group" role="group">
+                    <a href="{editar_url}" class="btn btn-sm btn-warning">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="{eliminar_url}" class="btn btn-sm btn-danger">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                </div>
+                '''
+                
+                # Agregar el producto a la lista de datos
+                data.append({
+                    'imagen': imagen_html,
+                    'nombre': producto.nombre,
+                    'precio': f'${producto.precio}',
+                    'categoria': producto.categoria.nombre,
+                    'marca': producto.marca.nombre,
+                    'stock': producto.stock,
+                    'disponible': disponible_html,
+                    'acciones': acciones_html
+                })
+            
         
-        # Filtrar por término de búsqueda si existe
-        if search_value:
-            queryset = queryset.filter(
-                Q(nombre__icontains=search_value) |
-                Q(descripcion__icontains=search_value) |
-                Q(categoria__nombre__icontains=search_value) |
-                Q(marca__nombre__icontains=search_value)
-            )
-        
-        # Contar registros para la paginación
-        total_records = Producto.objects.count()  # Total sin filtrar
-        total_records_filtered = queryset.count()  # Total después de filtrar
-        
-        # Ordenar y paginar los resultados
-        queryset = queryset.order_by(order_column)[start:start + length]
-        
-        # Preparar los datos para la respuesta
-        data = []
-        for producto in queryset:
-            # Obtener URL de la miniatura optimizada
-            thumbnail_url = producto.get_thumbnail_url()
-            
-            # Estado de disponibilidad formateado como HTML
-            if producto.disponible:
-                disponible_html = '<span class="badge bg-success">Sí</span>'
-            else:
-                disponible_html = '<span class="badge bg-danger">No</span>'
-            
-            # URL de las acciones
-            editar_url = reverse('catalogo:editar_producto', args=[producto.id])
-            eliminar_url = reverse('catalogo:eliminar_producto', args=[producto.id])
-            
-            # Agregar HTML para previsualización de imagen más grande al hacer hover
-            imagen_html = f'''
-            <div class="thumbnail-container" style="position: relative;">
-                <img src="{thumbnail_url}" alt="{producto.nombre}" 
-                     width="60" height="60" class="img-thumbnail product-thumbnail"
-                     style="object-fit: cover;" 
-                     data-bs-toggle="tooltip" title="{producto.nombre}">
-            </div>
-            '''
-            
-            # Botones de acción
-            acciones_html = f'''
-            <div class="btn-group" role="group">
-                <a href="{editar_url}" class="btn btn-sm btn-warning">
-                    <i class="fas fa-edit"></i>
-                </a>
-                <a href="{eliminar_url}" class="btn btn-sm btn-danger">
-                    <i class="fas fa-trash"></i>
-                </a>
-            </div>
-            '''
-            
-            # Agregar el producto a la lista de datos
-            data.append({
-                'imagen': imagen_html,
-                'nombre': producto.nombre,
-                'precio': f'${producto.precio}',
-                'categoria': producto.categoria.nombre,
-                'marca': producto.marca.nombre,
-                'stock': producto.stock,
-                'disponible': disponible_html,
-                'acciones': acciones_html
-            })
-        
-        # Preparar la respuesta JSON según el formato esperado por DataTables
-        response = {
+        # Preparar la respuesta JSON
+        response_data = {
             'draw': draw,
             'recordsTotal': total_records,
             'recordsFiltered': total_records_filtered,
             'data': data
         }
         
-        return JsonResponse(response)
+        
+        # Crear respuesta con cabeceras CORS
+        response = JsonResponse(response_data)
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "X-Requested-With, Content-Type, X-CSRFToken"
+        
+        return response
     
     except Exception as e:
-        # Registrar el error para depuración
         import logging
+        import traceback
         logger = logging.getLogger(__name__)
-        logger.error(f"Error en admin_productos_data: {str(e)}")
+        logger.error(traceback.format_exc())
+        print(f"DEBUG ERROR: {str(e)}")
+        print(traceback.format_exc())
         
-        # Devolver una respuesta de error formateada para DataTables
-        return JsonResponse({
-            'draw': draw if 'draw' in locals() else 1,
+        # Preparar respuesta de error
+        error_response = JsonResponse({
+            'draw': draw,
             'recordsTotal': 0,
             'recordsFiltered': 0,
             'data': [],
             'error': str(e)
         }, status=500)
+        
+        # Añadir cabeceras CORS
+        error_response["Access-Control-Allow-Origin"] = "*"
+        error_response["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
+        error_response["Access-Control-Allow-Headers"] = "X-Requested-With, Content-Type, X-CSRFToken"
+        
+        return error_response
         
 @login_required
 @user_passes_test(es_admin)

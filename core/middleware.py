@@ -71,12 +71,18 @@ class SecurityHeadersMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         
-        # Añadir cabeceras de seguridad
+        # Añadir cabeceras de seguridad básicas
         response['X-Content-Type-Options'] = 'nosniff'
         response['X-XSS-Protection'] = '1; mode=block'
         response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         
-        # Content Security Policy (CSP) básico
+        # Excepciones para rutas específicas que requieren más permisividad
+        if any(path in request.path for path in ['/catalogo/admin/productos/data/', '/admin/']):
+            # CSP permisivo para admin y endpoints de datos
+            response['Content-Security-Policy'] = "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data:; connect-src *"
+            return response
+        
+        # CSP estándar para el resto del sitio
         csp_directives = [
             "default-src 'self'",
             "script-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://cdnjs.cloudflare.com 'unsafe-inline' 'unsafe-eval'",

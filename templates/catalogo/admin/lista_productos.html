@@ -141,7 +141,8 @@
                         url: "{% url 'catalogo:admin_productos_data' %}",
                         type: "POST",
                         headers: {
-                            "X-CSRFToken": getCookie('csrftoken')
+                            "X-CSRFToken": getCookie('csrftoken'),
+                            "X-Requested-With": "XMLHttpRequest"
                         },
                         data: function(d) {
                             // Añadir parámetros de filtro a la solicitud AJAX
