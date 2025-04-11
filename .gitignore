@@ -172,3 +172,29 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Variables de entorno
+.env
+.env.*
+!.env.example
+
+# Base de datos
+db.sqlite3
+
+#Explicación línea por línea:
+
+# Variables de entorno - Solo es un comentario para organizar el archivo
+#.env - Indica a Git que ignore el archivo .env (donde guardas tus contraseñas)
+#.env.* - Ignora cualquier archivo que comience con .env. (como .env.local, .env.production, etc)
+#!.env.example - El ! significa "NO ignorar este archivo", así que .env.example SÍ se subirá a Git
+# Base de datos - Otro comentario
+#db.sqlite3 - Ignora el archivo de base de datos SQLite (contiene datos locales que no deben compartirse)
+
+#Por qué es importante este paso:
+
+#Evita que subas información sensible (contraseñas, claves secretas) a GitHub
+#Tu archivo .env contiene configuraciones personales que no deben compartirse
+#El archivo .env.example sí se comparte para que otros sepan qué variables configurar
+#La base de datos SQLite es solo para tu desarrollo local
+
+#¿Te queda más claro ahora qué necesitas hacer? Si necesitas más ayuda, puedo guiarte paso a paso para crear o modificar el archivo.
