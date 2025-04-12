@@ -1,0 +1,126 @@
+{% extends 'base/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Pago con tarjeta - Moto Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Pago con tarjeta</h4>
+                </div>
+                <div class="card-body">
+                    <h5 class="mb-3">Pedido #{{ pedido.id }}</h5>
+                    
+                    <div class="alert alert-info mb-4">
+                        <p class="mb-0"><strong>Total a pagar:</strong> ${{ pago.monto }}</p>
+                    </div>
+                    
+                    <div class="credit-card-icons mb-4 text-center">
+                        <i class="fab fa-cc-visa fa-2x mx-1"></i>
+                        <i class="fab fa-cc-mastercard fa-2x mx-1"></i>
+                        <i class="fab fa-cc-amex fa-2x mx-1"></i>
+                    </div>
+                    
+                    <form method="post" id="card-form" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                {{ form.titular|as_crispy_field }}
+                            </div>
+                            <div class="col-12 mb-3">
+                                {{ form.numero_tarjeta|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.fecha_expiracion|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.cvv|as_crispy_field }}
+                            </div>
+                        </div>
+                        
+                        <div class="form-check mb-4">
+                            {{ form.guardar_tarjeta }}
+                            <label class="form-check-label" for="{{ form.guardar_tarjeta.id_for_label }}">
+                                Guardar tarjeta para futuras compras
+                            </label>
+                        </div>
+                        
+                        <!-- Información de seguridad -->
+                        <div class="security-info mb-4">
+                            <div class="alert alert-light border">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-lock text-success me-2"></i>
+                                    <strong>Pago Seguro</strong>
+                                </div>
+                                <p class="small mb-0">Tus datos de pago están protegidos con cifrado SSL. No almacenamos los datos completos de tu tarjeta.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" id="submit-button">
+                                <i class="fas fa-credit-card"></i> Pagar ${{ pago.monto }}
+                            </button>
+                            <a href="{% url 'pagos:seleccionar_metodo_pago' pedido.id %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i> Cambiar método de pago
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const cardForm = document.getElementById('card-form');
+        const submitButton = document.getElementById('submit-button');
+        
+        if (cardForm) {
+            cardForm.addEventListener('submit', function() {
+                // Deshabilitar el botón para evitar múltiples envíos
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+            });
+        }
+        
+        // Formato para la tarjeta: añadir espacio cada 4 dígitos
+        const cardInput = document.getElementById('{{ form.numero_tarjeta.id_for_label }}');
+        if (cardInput) {
+            cardInput.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\s+/g, '').replace(/\D/g, '');
+                let formattedValue = '';
+                
+                for (let i = 0; i < value.length; i++) {
+                    if (i > 0 && i % 4 === 0) {
+                        formattedValue += ' ';
+                    }
+                    formattedValue += value[i];
+                }
+                
+                e.target.value = formattedValue;
+            });
+        }
+        
+        // Formato para fecha de expiración: añadir / automáticamente
+        const expiryInput = document.getElementById('{{ form.fecha_expiracion.id_for_label }}');
+        if (expiryInput) {
+            expiryInput.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                
+                if (value.length > 2) {
+                    value = value.substring(0, 2) + '/' + value.substring(2, 4);
+                }
+                
+                e.target.value = value;
+            });
+        }
+    });
+</script>
+{% endblock %}

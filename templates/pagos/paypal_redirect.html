@@ -1,0 +1,58 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Redirección a PayPal - Moto Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto text-center">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Redirección a PayPal</h4>
+                </div>
+                <div class="card-body">
+                    <div class="py-4">
+                        <div class="mb-4">
+                            <i class="fab fa-paypal fa-5x text-primary"></i>
+                        </div>
+                        
+                        <h5 class="mb-3">Estás a punto de ser redirigido a PayPal para completar tu pago</h5>
+                        
+                        <div class="alert alert-info mb-4">
+                            <p class="mb-0"><strong>Total a pagar:</strong> ${{ pago.monto }}</p>
+                        </div>
+                        
+                        <div class="spinner-border text-primary mb-4" role="status">
+                            <span class="visually-hidden">Redirigiendo...</span>
+                        </div>
+                        
+                        <p class="mb-0">Si no eres redirigido automáticamente, haz clic en el botón de abajo.</p>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fab fa-paypal me-2"></i> Continuar a PayPal
+                            </button>
+                            <a href="{% url 'pagos:seleccionar_metodo_pago' pedido.id %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i> Cancelar y volver
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Redirección automática después de un breve retardo
+    document.addEventListener('DOMContentLoaded', function() {
+        // Simulamos la redirección a PayPal después de 3 segundos
+        setTimeout(function() {
+            document.querySelector('form').submit();
+        }, 3000);
+    });
+</script>
+{% endblock %}

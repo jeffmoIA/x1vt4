@@ -1,0 +1,45 @@
+{% extends 'base/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Seleccionar método de pago - Moto Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Seleccionar método de pago</h4>
+                </div>
+                <div class="card-body">
+                    <h5 class="mb-3">Pedido #{{ pedido.id }}</h5>
+                    
+                    <div class="alert alert-info mb-4">
+                        <p class="mb-0"><strong>Total a pagar:</strong> ${{ pedido.total }}</p>
+                    </div>
+                    
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <h5>Selecciona tu método de pago:</h5>
+                            <div class="payment-methods mt-3">
+                                {{ form.metodo_pago|as_crispy_field }}
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-credit-card"></i> Continuar
+                            </button>
+                            <a href="{% url 'pedidos:detalle_pedido' pedido.id %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i> Volver al pedido
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

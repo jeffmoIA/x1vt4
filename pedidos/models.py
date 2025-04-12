@@ -4,6 +4,7 @@ from catalogo.models import Producto
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
+from django.urls import reverse
 
 
 class Pedido(models.Model):
@@ -104,6 +105,107 @@ class Pedido(models.Model):
             
             return True
         return False
+    
+    # NUEVOS MÉTODOS PARA INTEGRACIÓN CON PAGOS
+    def get_payment_url(self):
+        """
+        Devuelve la URL para proceder al pago de este pedido.
+        
+        Returns:
+            str: URL para el pago del pedido
+        """
+        return reverse('pagos:seleccionar_metodo_pago', args=[self.id])
+
+    def get_payment_status(self):
+        """
+        Obtiene el estado de pago del pedido consultando sus pagos asociados.
+        
+        Returns:
+            tuple: (str, str) - (estado, clase_css)
+        """
+        try:
+            # Intentar importar aquí para evitar dependencias circulares
+            from pagos.models import Pago
+            
+            # Buscar el pago más reciente
+            ultimo_pago = Pago.objects.filter(
+                pedido=self
+            ).order_by('-fecha_creacion').first()
+            
+            if not ultimo_pago:
+                if self.pagado:
+                    return ("Pagado", "success")
+                else:
+                    return ("Pendiente de pago", "warning")
+                    
+            # Mapear estado del pago a una clase de Bootstrap
+            estados = {
+                'pendiente': ('Pendiente de pago', 'warning'),
+                'procesando': ('Procesando pago', 'info'),
+                'completado': ('Pago completado', 'success'),
+                'fallido': ('Pago fallido', 'danger'),
+                'reembolsado': ('Reembolsado', 'secondary'),
+            }
+            
+            return estados.get(ultimo_pago.status, ("Desconocido", "secondary"))
+        except:
+            # Si hay algún error, devolver un estado genérico
+            return ("Pendiente de verificación", "info")
+
+    def tiene_pago_pendiente(self):
+        """
+        Verifica si el pedido tiene algún pago pendiente o en proceso.
+        
+        Returns:
+            bool: True si hay pagos pendientes
+        """
+        try:
+            from pagos.models import Pago
+            return Pago.objects.filter(
+                pedido=self,
+                status__in=['pendiente', 'procesando']
+            ).exists()
+        except:
+            return False
+
+
+class HistorialEstadoPedido(models.Model):
+    """Modelo para registrar cambios de estado en pedidos"""
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='historial_estados')
+    estado_anterior = models.CharField(max_length=20, choices=Pedido.ESTADOS)
+    estado_nuevo = models.CharField(max_length=20, choices=Pedido.ESTADOS)
+    notas = models.TextField(blank=True, null=True)
+    fecha_cambio = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-fecha_cambio']
+    
+    def __str__(self):
+        return f"{self.pedido.id}: {self.estado_anterior} → {self.estado_nuevo}"
+
+
+class ItemPedido(models.Model):
+    # Relación con el pedido
+    pedido = models.ForeignKey(Pedido, related_name='items', on_delete=models.CASCADE)
+    
+    # Relación con el producto
+    producto = models.ForeignKey(Producto, related_name='items_pedido', on_delete=models.CASCADE)
+    
+    # Precio al momento de la compra (puede cambiar en el futuro)
+    precio = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Cantidad de unidades
+    cantidad = models.PositiveIntegerField(default=1)
+    
+    def __str__(self):
+        return f'{self.cantidad} x {self.producto.nombre} en Pedido {self.pedido.id}'
+    
+    def precio_total(self):
+        """Calcula el subtotal de este ítem (precio * cantidad)"""
+        return self.precio * self.cantidad
+
+        
 
 class HistorialEstadoPedido(models.Model):
     """Modelo para registrar cambios de estado en pedidos"""

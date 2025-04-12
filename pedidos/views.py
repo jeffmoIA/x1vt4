@@ -64,7 +64,8 @@ def crear_pedido(request):
             messages.success(request, 'Pedido realizado con éxito')
             
             # Redirigir a la página de detalles del pedido
-            return redirect('pedidos:detalle_pedido', pedido_id=pedido.id)
+            return redirect('pagos:seleccionar_metodo_pago', pedido_id=pedido.id)
+
     else:
         # Prellenar el formulario con la información del usuario si existe
         initial_data = {}

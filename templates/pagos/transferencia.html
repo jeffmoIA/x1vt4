@@ -1,0 +1,70 @@
+{% extends 'base/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Pago por transferencia - Moto Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Pago por transferencia bancaria</h4>
+                </div>
+                <div class="card-body">
+                    <h5 class="mb-3">Pedido #{{ pedido.id }}</h5>
+                    
+                    <div class="alert alert-info mb-4">
+                        <p class="mb-0"><strong>Total a pagar:</strong> ${{ pago.monto }}</p>
+                    </div>
+                    
+                    <!-- Información de la cuenta bancaria -->
+                    <div class="bank-info mb-4">
+                        <h5>Realiza tu transferencia a la siguiente cuenta:</h5>
+                        <div class="card bg-light my-3">
+                            <div class="card-body">
+                                <p><strong>Banco:</strong> Banco Ejemplo</p>
+                                <p><strong>Titular:</strong> Moto Tienda SL</p>
+                                <p><strong>Número de cuenta:</strong> ES12 3456 7890 1234 5678 9012</p>
+                                <p><strong>Concepto:</strong> Pedido {{ pedido.id }} - {{ request.user.username }}</p>
+                                <div class="alert alert-warning mt-2 mb-0">
+                                    <small>Es imprescindible incluir el concepto para identificar tu pago.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Formulario para registrar la transferencia -->
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <h5 class="mb-3">Completa los siguientes datos:</h5>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.nombre_ordenante|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.banco_origen|as_crispy_field }}
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning mb-4">
+                            <p class="mb-0"><i class="fas fa-info-circle me-2"></i> Una vez recibamos tu transferencia, procesaremos tu pedido. Esto puede tomar de 1 a 3 días hábiles.</p>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check-circle"></i> He realizado la transferencia
+                            </button>
+                            <a href="{% url 'pagos:seleccionar_metodo_pago' pedido.id %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i> Cambiar método de pago
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

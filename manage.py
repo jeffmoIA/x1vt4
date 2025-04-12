@@ -14,7 +14,7 @@ def main():
         print("Variables de entorno cargadas desde .env")
 
     # Configurar el módulo de settings por defecto
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings.dev')  # Por defecto usar configuración de desarrollo
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings.dev')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

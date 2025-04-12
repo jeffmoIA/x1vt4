@@ -30,6 +30,8 @@ urlpatterns = [
     path('carrito/', include('carrito.urls')),
     # URLs de la aplicación pedidos
     path('pedidos/', include('pedidos.urls')),
+    # URLs de la aplicación pagos
+    path('pagos/', include('pagos.urls')),
     # URL para la página principal (root)
     path('', include('tienda.urls')),
     

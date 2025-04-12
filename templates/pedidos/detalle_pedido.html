@@ -35,6 +35,15 @@
                                     <span class="badge bg-danger">Cancelado</span>
                                 {% endif %}
                             </p>
+                            <p><strong>Estado de pago:</strong>
+                                {% with payment_status=pedido.get_payment_status %}
+                                    <span class="badge bg-{{ payment_status.1 }}">{{ payment_status.0 }}</span>
+                                {% endwith %}
+                            </p>
+                            
+                            {% if pedido.referencia_pago %}
+                                <p><strong>Referencia de pago:</strong> {{ pedido.referencia_pago }}</p>
+                            {% endif %}
                             <p><strong>Total:</strong> ${{ pedido.total }}</p>
                         </div>
                         <div class="col-md-6">
@@ -86,6 +95,11 @@
             
             {% if pedido.estado == 'pendiente' %}
                 <div class="d-grid gap-2">
+                    {% if not pedido.pagado %}
+                        <a href="{{ pedido.get_payment_url }}" class="btn btn-success mb-2">
+                            <i class="fas fa-credit-card"></i> Proceder al pago
+                        </a>
+                    {% endif %}
                     <a href="{% url 'pedidos:cancelar_pedido' pedido.id %}" class="btn btn-danger">
                         <i class="fas fa-times"></i> Cancelar pedido
                     </a>

@@ -1,7 +1,8 @@
 """
 Configuración para el entorno de desarrollo.
 """
-from .base import *  # Importamos la configuración base
+# Importamos la configuración base
+from .base import *  
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -21,8 +22,10 @@ INSTALLED_APPS += ['debug_toolbar']
 MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
 
 INTERNAL_IPS = [
-    '127.0.0.1',  # Localhost IPv4
-    '::1',        # Localhost IPv6
+    '127.0.0.1',  
+    # Localhost IPv4
+    '::1',        
+    # Localhost IPv6
 ]
 
 # Configuraciones de seguridad para desarrollo
@@ -31,8 +34,10 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
 # Configuración para cookies - menos estricta en desarrollo
-SESSION_COOKIE_SECURE = False  # No requerimos HTTPS en desarrollo
-CSRF_COOKIE_SECURE = False     # No requerimos HTTPS en desarrollo
+SESSION_COOKIE_SECURE = False 
+# No requerimos HTTPS en desarrollo
+CSRF_COOKIE_SECURE = False     
+# No requerimos HTTPS en desarrollo
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
@@ -40,7 +45,8 @@ CSRF_COOKIE_HTTPONLY = True
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Tiempo de vigencia de la sesión más largo para desarrollo (4 horas)
-SESSION_COOKIE_AGE = 14400  # En segundos
+SESSION_COOKIE_AGE = 14400  
+# En segundos
 SESSION_SAVE_EVERY_REQUEST = True
 
 # Asegurar que existe el directorio para logs

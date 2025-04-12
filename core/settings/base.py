@@ -5,10 +5,12 @@ import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent.parent  # Ajustamos para la nueva estructura
+BASE_DIR = Path(__file__).resolve().parent.parent.parent 
+# Ajustamos para la nueva estructura
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-kudl3o#czu*ez4_p6h86_6dod@8fr$zc3h@y9t6t&cwgoeu#wt')  # Valor por defecto solo para desarrollo
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-kudl3o#czu*ez4_p6h86_6dod@8fr$zc3h@y9t6t&cwgoeu#wt') 
+# Valor por defecto solo para desarrollo
 
 # Application definition
 INSTALLED_APPS = [
@@ -24,6 +26,7 @@ INSTALLED_APPS = [
     'catalogo',
     'carrito',
     'pedidos',
+    'pagos',
     # Bibliotecas de terceros
     'crispy_forms',
     'crispy_bootstrap5',
@@ -74,7 +77,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
         'OPTIONS': {
-            'min_length': 10,  # Longitud mínima de contraseña
+            'min_length': 12,  # PCI DSS requiere mínimo 12 caracteres
         }
     },
     {
@@ -85,9 +88,34 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Tiempo de vida de la sesión - 15 minutos de inactividad (900 segundos)
+SESSION_COOKIE_AGE = 900
+# Actualizar el tiempo de sesión en cada petición
+SESSION_SAVE_EVERY_REQUEST = True  
+
+# Política de cookies más segura
+# Solo enviar cookies en conexiones HTTPS
+SESSION_COOKIE_SECURE = True  
+# Solo enviar cookies CSRF en conexiones HTTPS
+CSRF_COOKIE_SECURE = True 
+# Prevenir acceso JavaScript a la cookie de sesión    
+SESSION_COOKIE_HTTPONLY = True  
+# Prevenir acceso JavaScript a la cookie CSRF
+CSRF_COOKIE_HTTPONLY = True     
+
+# Configuraciones de seguridad HTTP
+
+ # Activa filtro XSS en navegadores
+SECURE_BROWSER_XSS_FILTER = True 
+ # Previene MIME-sniffing
+SECURE_CONTENT_TYPE_NOSNIFF = True 
+# Previene clickjacking - no permite ser incrustado en frames
+X_FRAME_OPTIONS = 'DENY'  
+
 # Internationalization
 LANGUAGE_CODE = 'es-es'
-TIME_ZONE = 'America/Bogota'  # Ajusta a tu zona horaria
+# Ajusta a tu zona horaria
+TIME_ZONE = 'America/Guatemala'
 USE_I18N = True
 USE_TZ = True
 

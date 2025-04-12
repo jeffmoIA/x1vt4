@@ -1,7 +1,8 @@
 """
 Configuración para el entorno de producción.
 """
-from .base import *  # Importamos la configuración base
+from .base import * 
+# Importamos la configuración base
 import os
 
 # SECURITY WARNING: don't run with debug turned on in production!
