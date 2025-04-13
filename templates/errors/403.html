@@ -1,0 +1,27 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Acceso denegado - Moto Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6 mx-auto text-center">
+            <div class="error-template">
+                <h1 class="display-1 text-warning">403</h1>
+                <h2>Acceso denegado</h2>
+                <div class="error-details mb-4">
+                    Lo sentimos, no tienes permiso para acceder a esta página.
+                </div>
+                <div class="error-actions">
+                    <a href="{% url 'tienda:inicio' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-home"></i> Volver al inicio
+                    </a>
+                    <a href="{% url 'usuarios:login' %}" class="btn btn-outline-secondary btn-lg">
+                        <i class="fas fa-sign-in-alt"></i> Iniciar sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

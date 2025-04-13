@@ -28,8 +28,11 @@ from django.contrib.auth.models import User
 from django.template.loader import render_to_string
 from django.http import JsonResponse
 import json
+from utils.logger import log_exception, log_audit, performance_monitor, exception_handler
 
 @login_required
+@performance_monitor(name="crear_pedido_view")  # Monitorea el tiempo de ejecución
+@exception_handler(notify=True)  # Captura y registra excepciones
 def crear_pedido(request):
     """Crear un nuevo pedido a partir del carrito del usuario"""
     # Obtener el carrito del usuario
@@ -56,6 +59,18 @@ def crear_pedido(request):
                     precio=item.producto.precio,
                     cantidad=item.cantidad
                 )
+            
+            # Registrar acción de auditoría
+            log_audit(
+                user=request.user,
+                action="create",
+                object_type="Pedido",
+                object_id=pedido.id,
+                details={
+                    "total_items": pedido.items.count(),
+                    "total_amount": float(pedido.total())
+                }
+            )
             
             # Vaciar el carrito
             carrito.items.all().delete()

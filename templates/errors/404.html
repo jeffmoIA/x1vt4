@@ -1,0 +1,27 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Página no encontrada - Moto Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6 mx-auto text-center">
+            <div class="error-template">
+                <h1 class="display-1 text-muted">404</h1>
+                <h2>¡Página no encontrada!</h2>
+                <div class="error-details mb-4">
+                    Lo sentimos, la página que estás buscando no existe o ha sido movida.
+                </div>
+                <div class="error-actions">
+                    <a href="{% url 'tienda:inicio' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-home"></i> Volver al inicio
+                    </a>
+                    <a href="{% url 'tienda:contacto' %}" class="btn btn-outline-secondary btn-lg">
+                        <i class="fas fa-envelope"></i> Contactar soporte
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -5,6 +5,21 @@ from .base import *
 # Importamos la configuración base
 import os
 
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    
+    sentry_sdk.init(
+        dsn="TU_DSN_DE_SENTRY",  # Reemplaza esto con tu DSN real
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=0.5,  # Ajusta según tus necesidades
+        send_default_pii=False,  # No enviar información personal identificable
+        environment="production",
+    )
+    print("Sentry inicializado correctamente")
+except ImportError:
+    print("Sentry SDK no está instalado. La monitorización de errores estará desactivada.")
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
@@ -88,6 +103,14 @@ LOGGING = {
             'backupCount': 10,
             'formatter': 'verbose',
         },
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/error.log'),
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 10,
+            'formatter': 'verbose',
+        },
         'security_file': {
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
@@ -95,6 +118,28 @@ LOGGING = {
             'maxBytes': 10 * 1024 * 1024,  # 10 MB
             'backupCount': 10,
             'formatter': 'verbose',
+        },
+        'performance_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/performance.log'),
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 10,
+            'formatter': 'verbose',
+        },
+        'audit_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/audit.log'),
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 10,
+            'formatter': 'verbose',
+        },
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+            'formatter': 'verbose',
+            'include_html': True,
         },
     },
     'loggers': {
@@ -104,17 +149,37 @@ LOGGING = {
             'propagate': True,
         },
         'django.request': {
-            'handlers': ['file'],
+            'handlers': ['file', 'mail_admins'],
             'level': 'ERROR',
             'propagate': False,
         },
         'django.security': {
-            'handlers': ['security_file'],
+            'handlers': ['security_file', 'mail_admins'],
             'level': 'INFO',
             'propagate': False,
         },
+        'mototienda': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'mototienda.error': {
+            'handlers': ['error_file', 'mail_admins'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
         'mototienda.security': {
-            'handlers': ['security_file'],
+            'handlers': ['security_file', 'mail_admins'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'mototienda.performance': {
+            'handlers': ['performance_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'mototienda.audit': {
+            'handlers': ['audit_file'],
             'level': 'INFO',
             'propagate': False,
         },

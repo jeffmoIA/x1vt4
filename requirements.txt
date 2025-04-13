@@ -12,3 +12,4 @@ django-imagekit==5.0.0
 django-cleanup==8.0.0
 python-dotenv>=1.0.0
 python-dotenv>=1.0.0
+python-sentry-sdk
