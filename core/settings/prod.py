@@ -47,6 +47,22 @@ DATABASES = {
 # Configuración para archivos estáticos
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# Configuración avanzada para servir archivos estáticos en producción
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Habilitar compresión GZIP para archivos estáticos
+WHITENOISE_MIDDLEWARE = {
+    'compression_enabled': True,
+    'allow_all_origins': False,
+    'add_headers_function': None,
+}
+
+# Optimizar compressión
+COMPRESS_ENABLED = True
+COMPRESS_OFFLINE = True
+COMPRESS_CSS_HASHING_METHOD = 'content'  # Usar hash basado en contenido
+COMPRESS_STORAGE = 'compressor.storage.GzipCompressorFileStorage'
+
 # Configuración para archivos de medios
 MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 
@@ -186,13 +202,23 @@ LOGGING = {
     },
 }
 
-# Configuración de caché - Redis para producción
+# Configuración de caché para producción - Redis
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1'),
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+            'IGNORE_EXCEPTIONS': True,  # Ignora errores para no interrumpir si Redis falla
+            'PARSER_CLASS': 'redis.connection.HiredisParser',  # Parser más rápido
+            'SOCKET_CONNECT_TIMEOUT': 5,  # Timeout de conexión
+            'SOCKET_TIMEOUT': 5,  # Timeout de socket
+        },
+        'KEY_PREFIX': 'mototienda',
+        'TIMEOUT': 3600,  # 1 hora
     }
 }
+
+# Usar Redis también para las sesiones
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'

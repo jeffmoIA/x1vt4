@@ -5,6 +5,8 @@ from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
 from django.urls import reverse
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 
 class Pedido(models.Model):
@@ -167,6 +169,24 @@ class Pedido(models.Model):
             ).exists()
         except:
             return False
+    
+@receiver(post_save, sender=Pedido)
+def pedido_saved(sender, instance, created, **kwargs):
+        """Invalidar caché cuando se guarda un pedido"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('pedido', instance.id)
+        
+        # También invalidamos estadísticas generales si cambia el estado
+        if not created and instance.tracker.has_changed('estado'):
+            from utils.cache_utils import invalidate_model_cache
+            invalidate_model_cache('estadisticas_pedidos')
+        
+@receiver(post_delete, sender=Pedido)
+def pedido_deleted(sender, instance, **kwargs):
+        """Invalidar caché cuando se elimina un pedido"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('pedido', instance.id)
+        invalidate_model_cache('estadisticas_pedidos')
 
 
 class HistorialEstadoPedido(models.Model):
@@ -204,7 +224,6 @@ class ItemPedido(models.Model):
     def precio_total(self):
         """Calcula el subtotal de este ítem (precio * cantidad)"""
         return self.precio * self.cantidad
-
         
 
 class HistorialEstadoPedido(models.Model):

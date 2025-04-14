@@ -27,5 +27,7 @@ urlpatterns = [
     path('admin/marcas/crear/', views.crear_marca_ajax, name='crear_marca_ajax'),
     path('admin/marcas/eliminar/', views.eliminar_marca_ajax, name='eliminar_marca_ajax'),
     path('admin/marcas/listar/', views.listar_marcas_ajax, name='listar_marcas_ajax'),
+    # Vista para productos populares (cacheada)
+    path('populares/', views.productos_populares, name='productos_populares'),
     
 ]

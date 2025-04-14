@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from catalogo.models import Producto
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 class Carrito(models.Model):
     # Modelo para representar el carrito de compras de un usuario
@@ -16,6 +18,18 @@ class Carrito(models.Model):
         # Método para calcular el total del carrito
         # Suma los subtotales de todos los items en el carrito
         return sum(item.subtotal() for item in self.items.all())
+    
+@receiver(post_save, sender=Carrito)
+def carrito_saved(sender, instance, created, **kwargs):
+        """Invalidar caché cuando se guarda un carrito"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('carrito', instance.usuario.id)
+        
+@receiver(post_delete, sender=Carrito)
+def carrito_deleted(sender, instance, **kwargs):
+        """Invalidar caché cuando se elimina un carrito"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('carrito', instance.usuario.id)
 
 class ItemCarrito(models.Model):
     carrito = models.ForeignKey(Carrito, related_name='items', on_delete=models.CASCADE)
@@ -33,3 +47,17 @@ class ItemCarrito(models.Model):
         from decimal import Decimal
         # Convertir a Decimal para garantizar precisión
         return Decimal(str(self.producto.precio)) * Decimal(str(self.cantidad))
+    
+@receiver(post_save, sender=ItemCarrito)
+def item_carrito_saved(sender, instance, created, **kwargs):
+        """Invalidar caché cuando se modifica un item del carrito"""
+        from utils.cache_utils import invalidate_model_cache
+        # Invalidar la caché del carrito al que pertenece este item
+        invalidate_model_cache('carrito', instance.carrito.usuario.id)
+        
+@receiver(post_delete, sender=ItemCarrito)
+def item_carrito_deleted(sender, instance, **kwargs):
+        """Invalidar caché cuando se elimina un item del carrito"""
+        from utils.cache_utils import invalidate_model_cache
+        # Invalidar la caché del carrito al que pertenecía este item
+        invalidate_model_cache('carrito', instance.carrito.usuario.id)

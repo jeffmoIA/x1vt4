@@ -33,10 +33,27 @@ INSTALLED_APPS = [
     'django_filters',
     'imagekit',
     'django_cleanup',
+    'compressor',
+    
 ]
 
+# Configuración de caché
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',  # En desarrollo usamos la memoria local
+        'LOCATION': 'mototienda-cache',
+        'TIMEOUT': 300,  # 5 minutos en segundos
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,  # Número máximo de entradas en la caché
+        }
+    }
+}
+
+# La configuración correcta del middleware de caché
 MIDDLEWARE = [
+    'django.middleware.cache.UpdateCacheMiddleware',  # Debe estar primero
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -47,7 +64,46 @@ MIDDLEWARE = [
     'core.middleware.SecurityHeadersMiddleware',
     'core.middleware.SecurityAuditMiddleware',
     'utils.exception_middleware.GlobalExceptionMiddleware',
+    'utils.monitoring.PerformanceMonitorMiddleware',
+    'django.middleware.cache.FetchFromCacheMiddleware',  # Debe estar último
 ]
+
+# Configuración de archivos estáticos
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    'compressor.finders.CompressorFinder',  # Añadir CompressorFinder
+]
+
+# Configuración de compressor
+COMPRESS_ENABLED = True
+# Pre-comprimir en producción
+COMPRESS_OFFLINE = True
+
+COMPRESS_OFFLINE_CONTEXT = {
+    'STATIC_URL': '/static/',
+    'MEDIA_URL': '/media/',
+}  
+COMPRESS_CSS_FILTERS = [
+    'compressor.filters.css_default.CssAbsoluteFilter',
+    'compressor.filters.cssmin.rCSSMinFilter',
+]
+COMPRESS_JS_FILTERS = [
+    'compressor.filters.jsmin.JSMinFilter',
+]
+
+COMPRESS_PRECOMPILERS = ()
+COMPRESS_URL = '/static/'
+COMPRESS_ROOT = '/media/'
+COMPRESS_ENABLED = True
+COMPRESS_OFFLINE = True
+COMPRESS_CSS_HASHING_METHOD = 'content'
+# Permitir URLs externas
+COMPRESS_OFFLINE_MANIFEST = 'manifest.json'
+
+COMPRESS_OUTPUT_DIR = 'compressed'
+
+# Middleware de cacheo
 
 ROOT_URLCONF = 'core.urls'
 

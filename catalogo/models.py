@@ -4,6 +4,8 @@ from django.core.exceptions import ValidationError
 from imagekit.models import ProcessedImageField, ImageSpecField
 from imagekit.processors import ResizeToFill, ResizeToFit, Adjust
 from django.utils import timezone
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 def get_default_date():
     """Función que devuelve la fecha y hora actual como valor predeterminado"""
@@ -26,6 +28,18 @@ class Categoria(models.Model):
     class Meta:
         # Clase que permite configurar opciones adicionales del modelo
         verbose_name_plural = "Categorías"  # Nombre correcto en plural para el admin
+    
+@receiver(post_save, sender=Categoria)
+def categoria_saved(sender, instance, created, **kwargs):
+        """Invalidar caché cuando se guarda una categoría"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('categoria', instance.id)
+        
+@receiver(post_delete, sender=Categoria)
+def categoria_deleted(sender, instance, **kwargs):
+        """Invalidar caché cuando se elimina una categoría"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('categoria', instance.id)
 
 class Marca(models.Model):
     # Nombre de la marca (Honda, Yamaha, Alpinestars, etc.)
@@ -40,6 +54,18 @@ class Marca(models.Model):
     def __str__(self):
         # Representación textual de la marca
         return self.nombre
+    
+@receiver(post_save, sender=Marca)
+def marca_saved(sender, instance, created, **kwargs):
+        """Invalidar caché cuando se guarda una marca"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('marca', instance.id)
+        
+@receiver(post_delete, sender=Marca)
+def marca_deleted(sender, instance, **kwargs):
+        """Invalidar caché cuando se elimina una marca"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('marca', instance.id)
 
 class Producto(models.Model):
     # Información básica del producto
@@ -131,6 +157,18 @@ class Producto(models.Model):
         # Representación textual del producto
         return self.nombre
     
+@receiver(post_save, sender=Producto)
+def producto_saved(sender, instance, created, **kwargs):
+        """Invalidar caché cuando se guarda un producto"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('producto', instance.id)
+        
+@receiver(post_delete, sender=Producto)
+def producto_deleted(sender, instance, **kwargs):
+        """Invalidar caché cuando se elimina un producto"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('producto', instance.id)
+        
 # En catalogo/models.py, añade este nuevo modelo
 class TallaProducto(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='tallas')
@@ -146,6 +184,18 @@ class TallaProducto(models.Model):
 
     def __str__(self):
         return f"{self.producto.nombre} - Talla {self.talla}"
+    
+@receiver(post_save, sender=TallaProducto)
+def talla_producto_saved(sender, instance, created, **kwargs):
+        """Invalidar caché de producto cuando se guarda una talla"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('producto', instance.producto.id)
+        
+@receiver(post_delete, sender=TallaProducto)
+def talla_producto_deleted(sender, instance, **kwargs):
+        """Invalidar caché de producto cuando se elimina una talla"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('producto', instance.producto.id)
 
 
 def validate_image_size(image):
@@ -275,3 +325,15 @@ class ImagenProducto(models.Model):
     def get_carrusel_url(self):
         """Método auxiliar para obtener la URL de la imagen de carrusel"""
         return self.carrusel.url if hasattr(self, 'carrusel') else self.imagen.url
+    
+@receiver(post_save, sender=ImagenProducto)
+def imagen_producto_saved(sender, instance, created, **kwargs):
+        """Invalidar caché de producto cuando se guarda una imagen"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('producto', instance.producto.id)
+        
+@receiver(post_delete, sender=ImagenProducto)
+def imagen_producto_deleted(sender, instance, **kwargs):
+        """Invalidar caché de producto cuando se elimina una imagen"""
+        from utils.cache_utils import invalidate_model_cache
+        invalidate_model_cache('producto', instance.producto.id)

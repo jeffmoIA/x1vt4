@@ -44,7 +44,9 @@
                                 <div class="carousel-item {% if imagen.es_principal %}active{% endif %}">
                                     <img src="{{ imagen.imagen.url }}" class="d-block w-100" 
                                         alt="{{ imagen.titulo|default:producto.nombre }}"
-                                        style="max-height: 400px; object-fit: contain;">
+                                        style="max-height: 400px; object-fit: contain;"
+                                        loading="{% if imagen.es_principal %}eager{% else %}lazy{% endif %}">
+                                    <!-- Cargamos inmediatamente solo la imagen principal, las demás diferidas -->
                                 </div>
                             {% endfor %}
                         </div>

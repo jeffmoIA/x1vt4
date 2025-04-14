@@ -1,0 +1,33 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ titulo }} - Moto Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">{{ titulo }}</h1>
+    
+    <div class="row">
+        {% for producto in productos %}
+        <div class="col-md-3 mb-4">
+            <div class="card h-100">
+                <img src="{{ producto.get_imagen_url }}" class="card-img-top" 
+                     alt="{{ producto.nombre }}" style="height: 180px; object-fit: contain;"
+                     loading="lazy">
+                
+                <div class="card-body">
+                    <h5 class="card-title">{{ producto.nombre }}</h5>
+                    <p class="card-text text-primary fw-bold">${{ producto.precio }}</p>
+                    <a href="{% url 'catalogo:detalle_producto' producto.id %}" class="btn btn-primary">Ver detalles</a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    No se encontraron productos.
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

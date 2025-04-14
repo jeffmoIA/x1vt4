@@ -1,7 +1,8 @@
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 from .models import Pago, HistorialPago
 import logging
+from utils.cache_utils import invalidate_model_cache
 
 logger = logging.getLogger('mototienda.security')
 
@@ -25,3 +26,14 @@ def log_historial_pago(sender, instance, created, **kwargs):
         # Alertar específicamente sobre reembolsos o pagos fallidos
         if instance.estado_nuevo in ['fallido', 'reembolsado']:
             logger.warning(f"ALERTA: Pago {instance.pago.referencia} cambió a estado {instance.estado_nuevo}")
+
+# Signals para Pago
+@receiver(post_save, sender=Pago)
+def pago_saved(sender, instance, created, **kwargs):
+    """Invalidar caché cuando se guarda un pago"""
+    invalidate_model_cache('pedido', instance.pedido.id)
+    
+@receiver(post_delete, sender=Pago)
+def pago_deleted(sender, instance, **kwargs):
+    """Invalidar caché cuando se elimina un pago"""
+    invalidate_model_cache('pedido', instance.pedido.id)

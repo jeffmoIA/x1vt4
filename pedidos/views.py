@@ -29,6 +29,8 @@ from django.template.loader import render_to_string
 from django.http import JsonResponse
 import json
 from utils.logger import log_exception, log_audit, performance_monitor, exception_handler
+from django.db.models import Prefetch
+from utils.performance import query_debugger
 
 @login_required
 @performance_monitor(name="crear_pedido_view")  # Monitorea el tiempo de ejecución
@@ -253,13 +255,31 @@ def estadisticas_pedidos(request):
 
 @login_required
 @user_passes_test(es_admin)
+@query_debugger
 def admin_lista_pedidos(request):
-    """Vista para que los administradores gestionen todos los pedidos"""
-    # Con DataTables podemos cargar todos los pedidos y hacer el filtrado en el cliente
-    pedidos = Pedido.objects.all().select_related('usuario').prefetch_related('items__producto')
+    """Vista optimizada para gestión de pedidos en el panel de administración"""
+    # Usamos select_related para cargar relaciones en una sola consulta
+    # y prefetch_related para optimizar la carga de items
+    pedidos = (Pedido.objects
+              .select_related('usuario')
+              .prefetch_related(
+                  Prefetch('items', 
+                           queryset=ItemPedido.objects.select_related('producto')
+                  ),
+                  'historial_estados'
+              ))
+              
+    # Añadimos paginación eficiente para manejar grandes volúmenes
+    paginator = Paginator(pedidos.order_by('-fecha_pedido'), 50)  # 50 pedidos por página
+    page = request.GET.get('page', 1)
+    
+    try:
+        pedidos_paginados = paginator.page(page)
+    except (PageNotAnInteger, EmptyPage):
+        pedidos_paginados = paginator.page(1)
     
     context = {
-        'pedidos': pedidos,
+        'pedidos': pedidos_paginados,
     }
     
     return render(request, 'pedidos/admin/lista_pedidos.html', context)

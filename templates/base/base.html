@@ -1,19 +1,17 @@
 <!DOCTYPE html>
 {% load static %}
+{% load compress %}
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Moto Tienda{% endblock %}</title>
-    <!-- Meta tags necesarios -->
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        
-    <!-- CSS en orden de dependencias -->
+    
+    <!-- Recursos externos que no comprimimos -->
     <!-- 1. Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    <!-- 2. DataTables CSS (eliminar duplicados) -->
+    <!-- 2. DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.2.2/css/buttons.bootstrap5.min.css">
     
@@ -22,47 +20,16 @@
     
     <!-- 4. Toastr CSS para notificaciones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
-    <!-- 4. Toastr CSS para notificaciones -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
 
+    <!-- Ahora comprimimos solo los recursos locales -->
+    {% compress css %}
     <!-- CSS para el menú de administración personalizado -->
     <link rel="stylesheet" href="{% static 'css/admin_menu.css' %}">
-    <!-- 5. Tus estilos personalizados si los hay -->
-
-    {% block extra_css %}{% endblock %}
-
-    <!-- 4. Bootstrap Bundle (después de jQuery y DataTables) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- 6. Script de diagnóstico para verificar dependencias -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('==== DIAGNÓSTICO DE BIBLIOTECAS ====');
-            console.log('jQuery:', typeof jQuery !== 'undefined' ? jQuery.fn.jquery : 'No cargado');
-            console.log('DataTables:', typeof jQuery !== 'undefined' && typeof jQuery.fn.DataTable !== 'undefined' ? 'Cargado' : 'No cargado');
-            console.log('Bootstrap:', typeof bootstrap !== 'undefined' ? 'Cargado' : 'No cargado');
-            console.log('Toastr:', typeof toastr !== 'undefined' ? 'Cargado' : 'No cargado');
-            console.log('================================');
-        });
-    </script>
-    <!-- Verificación temprana de scripts -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM cargado. Verificando bibliotecas:');
-            console.log('jQuery disponible:', typeof jQuery !== 'undefined' ? 'Sí - ' + jQuery.fn.jquery : 'No');
-            console.log('Bootstrap disponible:', typeof bootstrap !== 'undefined' ? 'Sí' : 'No');
-            
-            // Verificar eventos en dropdown de administración
-            var adminDropdown = document.getElementById('adminDropdown');
-            if (adminDropdown) {
-                adminDropdown.addEventListener('click', function(e) {
-                    console.log('Click en menú administración');
-                });
-            } else {
-                console.warn('Elemento adminDropdown no encontrado');
-            }
-        });
-    </script>
     <link rel="stylesheet" href="{% static 'css/custom-dropdowns.css' %}">
+    {% endcompress %}
+    
+    <!-- Bloques para CSS adicional -->
+    {% block extra_css %}{% endblock %}
     {% block page_css %}{% endblock %}
     {% block custom_css %}{% endblock %}
 </head>
@@ -116,7 +83,6 @@
                         <a class="nav-link" href="{% url 'carrito:ver_carrito' %}">
                             <i class="fas fa-shopping-cart"></i> Carrito
                             {% if request.user.is_authenticated %}
-                                <!-- Este código asume que has recuperado el carrito en un contexto global -->
                                 {% with total_items=carrito_count|default:0 %}
                                     {% if total_items > 0 %}
                                         <span class="badge bg-danger">{{ total_items }}</span>
@@ -202,7 +168,12 @@
 <!-- Toastr JS para notificaciones -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 
-<!-- Script para inicializar correctamente los dropdowns de Bootstrap -->
+{% compress js %}
+<!-- Scripts personalizados -->
+<script src="{% static 'js/admin_menu.js' %}"></script>
+<script src="{% static 'js/custom-dropdowns.js' %}"></script>
+
+<!-- Script para inicializar correctamente los dropdowns -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Verificar si Bootstrap está disponible
@@ -223,71 +194,63 @@
         document.querySelectorAll('script').forEach(function(script, index) {
             console.log(index + ':', script.src || 'Script inline');
         });
-    });
-    </script>
-    <!-- Script de reparación específica para el menú de administración -->
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
+        
         // Obtener el botón de administración
         var adminBtn = document.getElementById('adminDropdown');
-        if (!adminBtn) {
-            console.error('El botón de administración no se encontró en el DOM');
-            return;
-        }
-        
-        // Obtener el menú desplegable asociado
-        var adminMenu = document.querySelector('[aria-labelledby="adminDropdown"]');
-        if (!adminMenu) {
-            console.error('El menú desplegable de administración no se encontró en el DOM');
-            return;
-        }
-        
-        console.log('Reparando menú de administración');
-        
-        // Eliminar listeners existentes para evitar duplicados
-        var newAdminBtn = adminBtn.cloneNode(true);
-        adminBtn.parentNode.replaceChild(newAdminBtn, adminBtn);
-        adminBtn = newAdminBtn;
-        
-        // Crear manualmente un objeto Dropdown 
-        var adminDropdown = new bootstrap.Dropdown(adminBtn);
-        
-        // Agregar listener para alternar el menú desplegable manualmente
-        adminBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Click en botón administración - Acción manual');
-            
-            // Alternar la clase show en el menú desplegable
-            if (adminMenu.classList.contains('show')) {
-                adminMenu.classList.remove('show');
-                adminBtn.setAttribute('aria-expanded', 'false');
-            } else {
-                adminMenu.classList.add('show');
-                adminBtn.setAttribute('aria-expanded', 'true');
+        if (adminBtn) {
+            // Obtener el menú desplegable asociado
+            var adminMenu = document.querySelector('[aria-labelledby="adminDropdown"]');
+            if (adminMenu) {
+                console.log('Reparando menú de administración');
                 
-                // Posicionar el menú correctamente
-                var btnRect = adminBtn.getBoundingClientRect();
-                adminMenu.style.position = 'absolute';
-                adminMenu.style.inset = '0px auto auto 0px';
-                adminMenu.style.margin = '0px';
-                adminMenu.style.transform = 'translate3d(' + btnRect.left + 'px, ' + (btnRect.bottom + window.scrollY) + 'px, 0px)';
+                // Eliminar listeners existentes para evitar duplicados
+                var newAdminBtn = adminBtn.cloneNode(true);
+                adminBtn.parentNode.replaceChild(newAdminBtn, adminBtn);
+                adminBtn = newAdminBtn;
+                
+                // Crear manualmente un objeto Dropdown 
+                try {
+                    var adminDropdown = new bootstrap.Dropdown(adminBtn);
+                } catch (e) {
+                    console.error('Error al crear Dropdown:', e);
+                }
+                
+                // Agregar listener para alternar el menú desplegable manualmente
+                adminBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Click en botón administración - Acción manual');
+                    
+                    // Alternar la clase show en el menú desplegable
+                    if (adminMenu.classList.contains('show')) {
+                        adminMenu.classList.remove('show');
+                        adminBtn.setAttribute('aria-expanded', 'false');
+                    } else {
+                        adminMenu.classList.add('show');
+                        adminBtn.setAttribute('aria-expanded', 'true');
+                        
+                        // Posicionar el menú correctamente
+                        var btnRect = adminBtn.getBoundingClientRect();
+                        adminMenu.style.position = 'absolute';
+                        adminMenu.style.inset = '0px auto auto 0px';
+                        adminMenu.style.margin = '0px';
+                        adminMenu.style.transform = 'translate3d(' + btnRect.left + 'px, ' + (btnRect.bottom + window.scrollY) + 'px, 0px)';
+                    }
+                });
+                
+                // Cerrar el dropdown cuando se hace clic fuera
+                document.addEventListener('click', function(e) {
+                    if (!adminBtn.contains(e.target) && !adminMenu.contains(e.target)) {
+                        adminMenu.classList.remove('show');
+                        adminBtn.setAttribute('aria-expanded', 'false');
+                    }
+                });
             }
-        });
-        
-        // Cerrar el dropdown cuando se hace clic fuera
-        document.addEventListener('click', function(e) {
-            if (!adminBtn.contains(e.target) && !adminMenu.contains(e.target)) {
-                adminMenu.classList.remove('show');
-                adminBtn.setAttribute('aria-expanded', 'false');
-            }
-        });
-        
-        console.log('Reparación del menú de administración completada');
+        }
     });
-    </script>
-    <script src="{% static 'js/admin_menu.js' %}"></script>
-    <script src="{% static 'js/custom-dropdowns.js' %}"></script>
+</script>
+{% endcompress %}
+
 {% block page_js %}{% endblock %}
 {% block extra_js %}{% endblock %}
 </body>
