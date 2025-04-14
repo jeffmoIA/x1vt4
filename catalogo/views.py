@@ -222,6 +222,9 @@ def lista_productos(request):
         print(f"Producto: {producto.nombre} - Imagen principal: {producto.imagen}")
         print(f"  Imágenes asociadas: {producto.imagenes.count()}")
         
+    # Añadir orden explícito antes de paginar para evitar la advertencia
+    productos_filtrados = productos_filtrados.order_by('-id')  # Ordenar por ID de forma descendente
+    
     # Paginar los resultados
     paginator = Paginator(productos_filtrados, 6)  # 6 productos por página
     page_number = request.GET.get('page', 1)

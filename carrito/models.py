@@ -29,4 +29,7 @@ class ItemCarrito(models.Model):
         return f"{self.cantidad} x {self.producto.nombre}"
     
     def subtotal(self):
-        return self.producto.precio * self.cantidad
+        """Calcula el subtotal del item (precio * cantidad)"""
+        from decimal import Decimal
+        # Convertir a Decimal para garantizar precisión
+        return Decimal(str(self.producto.precio)) * Decimal(str(self.cantidad))
