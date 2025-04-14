@@ -225,42 +225,6 @@ class ItemPedido(models.Model):
         """Calcula el subtotal de este ítem (precio * cantidad)"""
         return self.precio * self.cantidad
         
-
-class HistorialEstadoPedido(models.Model):
-    """Modelo para registrar cambios de estado en pedidos"""
-    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='historial_estados')
-    estado_anterior = models.CharField(max_length=20, choices=Pedido.ESTADOS)
-    estado_nuevo = models.CharField(max_length=20, choices=Pedido.ESTADOS)
-    notas = models.TextField(blank=True, null=True)
-    fecha_cambio = models.DateTimeField(auto_now_add=True)
-    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    class Meta:
-        ordering = ['-fecha_cambio']
-    
-    def __str__(self):
-        return f"{self.pedido.id}: {self.estado_anterior} → {self.estado_nuevo}"
-
-class ItemPedido(models.Model):
-    # Relación con el pedido
-    pedido = models.ForeignKey(Pedido, related_name='items', on_delete=models.CASCADE)
-    
-    # Relación con el producto
-    producto = models.ForeignKey(Producto, related_name='items_pedido', on_delete=models.CASCADE)
-    
-    # Precio al momento de la compra (puede cambiar en el futuro)
-    precio = models.DecimalField(max_digits=10, decimal_places=2)
-    
-    # Cantidad de unidades
-    cantidad = models.PositiveIntegerField(default=1)
-    
-    def __str__(self):
-        return f'{self.cantidad} x {self.producto.nombre} en Pedido {self.pedido.id}'
-    
-    def precio_total(self):
-        """Calcula el subtotal de este ítem (precio * cantidad)"""
-        return self.precio * self.cantidad
-        
 def get_items_count(self):
     """Devuelve el número total de ítems en el pedido"""
     return sum(item.cantidad for item in self.items.all())

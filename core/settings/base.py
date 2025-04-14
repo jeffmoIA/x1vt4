@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'carrito',
     'pedidos',
     'pagos',
+    'core',
     # Bibliotecas de terceros
     'crispy_forms',
     'crispy_bootstrap5',
