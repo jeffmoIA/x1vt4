@@ -206,6 +206,8 @@ MESSAGE_TAGS = {
 # URL de login
 LOGIN_URL = 'usuarios:login'
 
+
+
 # Configuración de logging base - se aplicará a todos los entornos
 LOGGING = {
     'version': 1,
@@ -300,6 +302,8 @@ LOGGING = {
         },
     },
 }
+
+LOGIN_REDIRECT_URL = 'tienda:inicio'
 
 # Asegurar que existe el directorio para logs
 if not os.path.exists(os.path.join(BASE_DIR, 'logs')):

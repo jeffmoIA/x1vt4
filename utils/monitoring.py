@@ -17,6 +17,7 @@ class PerformanceMonitorMiddleware(MiddlewareMixin):
     
     def __init__(self, get_response):
         self.get_response = get_response
+        self.async_mode = False
         self.process = psutil.Process(os.getpid())
         self._local = threading.local()
         

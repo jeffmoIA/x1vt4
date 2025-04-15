@@ -182,6 +182,9 @@ def lista_productos(request):
                          'tallas'     # Carga todas las tallas en una sola consulta
                      ))
     
+    # Inicializar productos_filtrados con productos_base
+    productos_filtrados = productos_base  # Esta es la línea clave que faltaba
+    
     # Aplicamos filtros según los parámetros de GET
     # Nota: Aquí usamos el procesamiento diferido de Django ORM,
     # que no ejecuta consultas hasta que realmente se necesiten los datos
@@ -189,7 +192,7 @@ def lista_productos(request):
     # Filtrar por nombre
     nombre_busqueda = request.GET.get('nombre', '')
     if nombre_busqueda:
-        productos_base = productos_base.filter(nombre__icontains=nombre_busqueda)
+        productos_filtrados = productos_filtrados.filter(nombre__icontains=nombre_busqueda)
     
     # Categorías y marcas para los filtros laterales (esto se puede cachear)
     from django.core.cache import cache
@@ -208,8 +211,36 @@ def lista_productos(request):
         # Guardar en caché por 1 hora
         cache.set('todas_marcas', marcas, 3600)
     
-    # Continúa con el resto de tu código para filtrado...
-    # (tu código existente para filtros)
+    # Filtros adicionales por precio, categoría, marca y disponibilidad
+    # Filtrar por rango de precios
+    precio_min = request.GET.get('precio_min')
+    if precio_min:
+        try:
+            productos_filtrados = productos_filtrados.filter(precio__gte=float(precio_min))
+        except (ValueError, TypeError):
+            pass  # Ignorar si no es un número válido
+    
+    precio_max = request.GET.get('precio_max')
+    if precio_max:
+        try:
+            productos_filtrados = productos_filtrados.filter(precio__lte=float(precio_max))
+        except (ValueError, TypeError):
+            pass  # Ignorar si no es un número válido
+    
+    # Filtrar por categorías seleccionadas
+    categorias_seleccionadas = request.GET.getlist('categoria')
+    if categorias_seleccionadas:
+        productos_filtrados = productos_filtrados.filter(categoria__id__in=categorias_seleccionadas)
+    
+    # Filtrar por marcas seleccionadas
+    marcas_seleccionadas = request.GET.getlist('marca')
+    if marcas_seleccionadas:
+        productos_filtrados = productos_filtrados.filter(marca__id__in=marcas_seleccionadas)
+    
+    # Filtrar por disponibilidad
+    disponible = request.GET.get('disponible')
+    if disponible == 'true':
+        productos_filtrados = productos_filtrados.filter(disponible=True)
     
     # Añadir orden explícito antes de paginar para evitar la advertencia
     productos_filtrados = productos_filtrados.order_by('-id')
@@ -230,12 +261,12 @@ def lista_productos(request):
         'productos': productos_paginados,
         'categorias': categorias,
         'marcas': marcas,
-        'categorias_seleccionadas': request.GET.getlist('categoria'),
-        'marcas_seleccionadas': request.GET.getlist('marca'),
+        'categorias_seleccionadas': categorias_seleccionadas,
+        'marcas_seleccionadas': marcas_seleccionadas,
         'nombre_busqueda': nombre_busqueda,
-        'precio_min': request.GET.get('precio_min', ''),
-        'precio_max': request.GET.get('precio_max', ''),
-        'disponible_seleccionado': request.GET.get('disponible') == 'true'
+        'precio_min': precio_min or '',
+        'precio_max': precio_max or '',
+        'disponible_seleccionado': disponible == 'true'
     }
     
     return render(request, 'catalogo/lista_productos.html', context)

@@ -1,5 +1,6 @@
-from .models import Carrito
+from django.db import models
 from django.core.cache import cache
+from .models import Carrito
 
 def carrito_count(request):
     """
@@ -20,7 +21,6 @@ def carrito_count(request):
                 count = carrito.items.aggregate(total=models.Sum('cantidad'))['total'] or 0
                 
                 # Guardamos en caché por un tiempo corto (2 minutos)
-                # Este valor se refresca frecuentemente
                 cache.set(cache_key, count, 120)
             except Carrito.DoesNotExist:
                 count = 0

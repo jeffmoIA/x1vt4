@@ -24,11 +24,11 @@ def registro(request):
     # Renderizar la plantilla con el formulario
     return render(request, 'usuarios/registro.html', {'form': form})
 
-@login_required  # Decorador que asegura que solo usuarios autenticados accedan
+@login_required
 def perfil(request):
-    # Vista para ver y editar el perfil de usuario
-    # Obtener el perfil del usuario actual
-    perfil = Perfil.objects.get(usuario=request.user)
+    """Vista para ver y editar el perfil de usuario"""
+    # Obtener o crear el perfil del usuario actual
+    perfil, created = Perfil.objects.get_or_create(usuario=request.user)
     
     if request.method == 'POST':
         # Si es POST, procesar el formulario de actualización
@@ -36,6 +36,8 @@ def perfil(request):
         if form.is_valid():
             # Guardar los cambios si son válidos
             form.save()
+            # Mostrar mensaje de éxito
+            messages.success(request, 'Perfil actualizado correctamente')
             # Redirigir a la misma página para ver los cambios
             return redirect('usuarios:perfil')
     else:
