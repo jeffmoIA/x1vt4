@@ -4,6 +4,48 @@
 {% block page_css %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'css/producto/imagen_fix.css' %}">
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<style>
+    /* Mejoras para Select2 en móviles */
+    .select2-container--bootstrap-5 .select2-selection {
+        padding: 0.375rem 0.75rem;
+        font-size: 1rem;
+        border: 1px solid #ced4da;
+    }
+    
+    .select2-container--bootstrap-5 .select2-selection--single {
+        height: auto;
+        min-height: calc(1.5em + 0.75rem + 2px);
+    }
+    
+    .select2-container--bootstrap-5 .select2-dropdown {
+        border-color: #86b7fe;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    
+    .select2-container--bootstrap-5 .select2-search__field:focus {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    /* Estilo para la opción de creación */
+    .select2-results__option[aria-selected=true] {
+        background-color: #f8f9fa !important;
+        color: #212529 !important;
+    }
+    
+    /* Mejora para móviles */
+    @media (max-width: 576px) {
+        .select2-container--bootstrap-5 {
+            width: 100% !important;
+        }
+        
+        .select2-container--bootstrap-5 .select2-dropdown {
+            width: 100% !important;
+        }
+    }
+</style>
 <style>
     /* Mejora visual del checkbox "Es imagen principal" */
     input[name*="es_principal"] {
@@ -24,6 +66,15 @@
       color: #0d6efd;
       margin-left: 5px;
       font-size: 1.1em;
+    }
+    /* Mejora visual para errores de validación */
+    .is-invalid {
+        border-color: #dc3545;
+        padding-right: calc(1.5em + 0.75rem);
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
     }
   </style>
 {% endblock %}
@@ -48,33 +99,44 @@
                             {% endif %}
                         {% endfor %}
                         
-                        <!-- Selector de marca con botón para gestionar -->
+                        <!-- Selector de marca con Select2 y panel de gestión -->
                         <div class="mb-3" id="marca-selector-container">
                             <label for="id_marca" class="form-label">Marca</label>
-                            <div class="input-group">
-                                <select name="marca" id="id_marca" class="form-select" required>
-                                    {% for marca in form.fields.marca.queryset %}
-                                        <option value="{{ marca.id }}" {% if form.instance.marca_id == marca.id %}selected{% endif %}>
-                                            {{ marca.nombre }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                                <button class="btn btn-outline-secondary" 
-                                        type="button" 
-                                        id="btnGestionarMarcas" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#gestionMarcasModal">
-                                    <i class="fas fa-cog"></i>
-                                </button>
+                            <select name="marca" id="id_marca" class="form-control select2-marca" required>
+                                {% for marca in form.fields.marca.queryset %}
+                                    <option value="{{ marca.id }}" {% if form.instance.marca_id == marca.id %}selected{% endif %}>
+                                        {{ marca.nombre }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text mt-1">Selecciona una marca o escribe para crear/buscar</div>
+                            
+                            <!-- Botón para mostrar/ocultar panel de gestión -->
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="toggleMarcasPanel">
+                                <i class="fas fa-cog"></i> Gestionar marcas existentes
+                            </button>
+                            
+                            <!-- Panel de gestión de marcas existentes (oculto por defecto) -->
+                            <div id="marcasPanel" class="card mt-2" style="display:none;">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Marcas existentes</h6>
+                                    <div class="input-group input-group-sm" style="width: 150px;">
+                                        <input type="text" id="searchMarcas" class="form-control" placeholder="Buscar...">
+                                    </div>
+                                </div>
+                                <div class="card-body p-0" style="max-height: 250px; overflow-y: auto;">
+                                    <ul class="list-group list-group-flush" id="listaMarcasExistentes">
+                                        <!-- Se cargará dinámicamente -->
+                                        <li class="list-group-item text-center">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                            <span class="ms-2">Cargando marcas...</span>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
-                            <div class="form-text">Selecciona la marca del producto o gestiona las marcas disponibles</div>
                         </div>
-                        
                         <!-- Atributos de datos para marcas -->
-                        <div data-url-listar-marcas="{% url 'catalogo:listar_marcas_ajax' %}"
-                             data-url-crear-marca="{% url 'catalogo:crear_marca_ajax' %}"
-                             data-url-eliminar-marca="{% url 'catalogo:eliminar_marca_ajax' %}">
-                        </div>
+                        <div data-url-crear-marca="{% url 'catalogo:crear_marca_ajax' %}"></div>
                         
                         <!-- Gestión de tallas -->
                         <h5 class="mt-4 mb-3">Tallas disponibles</h5>
@@ -173,7 +235,6 @@
                                 </button>
                             </div>
                         </div>
-                        
                         <div class="d-flex justify-content-between">
                             <a href="{% url 'catalogo:admin_lista_productos' %}" class="btn btn-secondary">Cancelar</a>
                             <button type="submit" class="btn btn-success">
@@ -181,44 +242,6 @@
                             </button>
                         </div>
                     </form>
-                    
-                    <!-- Modal de gestión de marcas (igual que en editar) -->
-                    <div class="modal fade" id="gestionMarcasModal" tabindex="-1" aria-labelledby="gestionMarcasModalLabel">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="gestionMarcasModalLabel">Gestionar Marcas</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <!-- Formulario de nueva marca -->
-                                    <div class="mb-3">
-                                        <label class="form-label">Añadir nueva marca</label>
-                                        <div class="input-group">
-                                            <input type="text" id="nuevaMarcaNombre" class="form-control" placeholder="Nombre de la marca">
-                                            <button type="button" class="btn btn-primary" id="btnAnadirMarca">Añadir</button>
-                                        </div>
-                                        <div class="invalid-feedback" id="nuevaMarcaFeedback"></div>
-                                    </div>
-                                    
-                                    <!-- Lista de marcas existentes -->
-                                    <div>
-                                        <h6>Marcas existentes</h6>
-                                        <div id="listaMarcasExistentes" class="list-group">
-                                            <!-- Se cargará dinámicamente -->
-                                            <div class="text-center p-3">
-                                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                                <span class="ms-2">Cargando marcas...</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -228,7 +251,106 @@
 
 {% block extra_js %}
 {{ block.super }}
-<script src="{% static 'js/producto/marcas_manager.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializar Select2
+        $('.select2-marca').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            language: {
+                noResults: function() {
+                    return "No se encontraron resultados";
+                },
+                inputTooShort: function() {
+                    return "Por favor ingresa al menos 1 carácter";
+                }
+            },
+            minimumInputLength: 1,
+            tags: true,  // Permite crear nuevos elementos
+            createTag: function(params) {
+                // Solo crear tag si no existe ya
+                const term = $.trim(params.term);
+                
+                // Verificar si el término ya existe en las opciones actuales
+                let existe = false;
+                $(".select2-marca option").each(function() {
+                    if ($(this).text().toLowerCase() === term.toLowerCase()) {
+                        existe = true;
+                        return false; // Romper el bucle
+                    }
+                });
+                
+                if (existe) return null;
+                
+                return {
+                    id: 'new:' + term,
+                    text: term + ' (Crear nueva)',
+                    newTag: true
+                };
+            }
+        }).on('select2:select', function(e) {
+            if (e.params.data.newTag) {
+                const nombre = e.params.data.text.replace(' (Crear nueva)', '');
+                const selectElement = $(this);
+                
+                // Mostrar indicador de carga
+                const placeholder = selectElement.siblings('.select2-container')
+                    .find('.select2-selection__rendered');
+                const textoOriginal = placeholder.text();
+                placeholder.html('<i class="fas fa-spinner fa-spin me-1"></i> Creando...');
+                
+                // Llamada AJAX para crear nueva marca
+                fetch('{% url "catalogo:crear_marca_ajax" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'nombre=' + encodeURIComponent(nombre)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Crear nueva opción con el ID correcto
+                        const newOption = new Option(data.nombre, data.id, true, true);
+                        selectElement.append(newOption).trigger('change');
+                        
+                        // Eliminar la opción temporal
+                        selectElement.find('option[value="new:' + nombre + '"]').remove();
+                        
+                        // Mostrar notificación
+                        if (typeof toastr !== 'undefined') {
+                            toastr.success('Marca creada correctamente');
+                        }
+                    } else {
+                        // Mostrar error
+                        if (typeof toastr !== 'undefined') {
+                            toastr.error(data.error || 'Error al crear la marca');
+                        } else {
+                            alert(data.error || 'Error al crear la marca');
+                        }
+                        
+                        // Restaurar selección anterior
+                        placeholder.text(textoOriginal);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error('Error de conexión');
+                    } else {
+                        alert('Error de conexión');
+                    }
+                    
+                    // Restaurar selección anterior
+                    placeholder.text(textoOriginal);
+                });
+            }
+        });
+    });
+</script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Funcionalidad para añadir tallas
@@ -645,5 +767,277 @@
                 observer.observe(contenedor, { childList: true, subtree: true });
             }
         });
+
+
     </script>
+    <script>
+       document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar Select2
+    $('.select2-marca').select2({
+        theme: 'bootstrap-5',
+        width: '100%',
+        language: {
+            noResults: "No se encontraron resultados",
+            inputTooShort: "Escribe al menos 1 carácter"
+        },
+        minimumInputLength: 1,
+        tags: true,
+        createTag: function(params) {
+            const term = $.trim(params.term);
+            
+            // Verificar si ya existe
+            let existe = false;
+            $(".select2-marca option").each(function() {
+                if ($(this).text().toLowerCase() === term.toLowerCase()) {
+                    existe = true;
+                    return false;
+                }
+            });
+            
+            if (existe) return null;
+            
+            return {
+                id: 'new:' + term,
+                text: term + ' (Crear nueva)',
+                newTag: true
+            };
+        }
+    }).on('select2:select', function(e) {
+        if (e.params.data.newTag) {
+            crearNuevaMarca(e.params.data.text.replace(' (Crear nueva)', ''), $(this));
+        }
+    });
+    
+    // Gestión del panel de marcas
+    $('#toggleMarcasPanel').on('click', function() {
+        const panel = $('#marcasPanel');
+        panel.slideToggle();
+        
+        if (panel.is(':visible')) {
+            cargarMarcasExistentes();
+        }
+    });
+    
+    // Buscar en marcas existentes
+    $('#searchMarcas').on('input', function() {
+        const searchTerm = $(this).val().toLowerCase();
+        $('#listaMarcasExistentes li').each(function() {
+            const text = $(this).find('.marca-nombre').text().toLowerCase();
+            $(this).toggle(text.includes(searchTerm));
+        });
+    });
+    
+    // Función para cargar las marcas existentes
+    function cargarMarcasExistentes() {
+        const listaEl = $('#listaMarcasExistentes');
+        
+        // Mostrar loading
+        listaEl.html('<li class="list-group-item text-center"><div class="spinner-border spinner-border-sm text-primary" role="status"></div><span class="ms-2">Cargando marcas...</span></li>');
+        
+        // Obtener marcas mediante fetch
+        fetch('{% url "catalogo:listar_marcas_ajax" %}', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderizarMarcas(data.marcas);
+            } else {
+                listaEl.html('<li class="list-group-item text-danger">Error al cargar marcas</li>');
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            listaEl.html('<li class="list-group-item text-danger">Error de conexión</li>');
+        });
+    }
+    
+    // Renderizar lista de marcas
+    function renderizarMarcas(marcas) {
+        const listaEl = $('#listaMarcasExistentes');
+        listaEl.empty();
+        
+        if (marcas.length === 0) {
+            listaEl.html('<li class="list-group-item">No hay marcas disponibles</li>');
+            return;
+        }
+        
+        marcas.forEach(marca => {
+            const canDelete = marca.productos_count === 0;
+            añadirMarcaALista(marca, listaEl);
+        });
+    }
+    
+    // Función para añadir marca a la lista sin recargar todo
+    function añadirMarcaALista(marca, listaEl) {
+        const canDelete = marca.productos_count === 0;
+        const li = $(`
+            <li class="list-group-item d-flex justify-content-between align-items-center" data-id="${marca.id}">
+                <span class="marca-nombre">${marca.nombre}</span>
+                <div>
+                    <span class="badge bg-secondary">${marca.productos_count} productos</span>
+                    ${canDelete ? 
+                        `<button type="button" class="btn btn-sm btn-danger ms-2 btn-eliminar-marca" data-id="${marca.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>` : 
+                        `<button type="button" class="btn btn-sm btn-danger ms-2" disabled title="No se puede eliminar porque tiene productos asociados">
+                            <i class="fas fa-trash"></i>
+                        </button>`
+                    }
+                </div>
+            </li>
+        `);
+        
+        // Añadir evento al botón eliminar
+        li.find('.btn-eliminar-marca').on('click', function() {
+            const marcaId = $(this).data('id');
+            eliminarMarca(marcaId);
+        });
+        
+        // Añadir a la lista
+        listaEl.append(li);
+    }
+    
+    // Función para crear nueva marca
+    function crearNuevaMarca(nombre, selectElement) {
+        const placeholder = selectElement.siblings('.select2-container').find('.select2-selection__rendered');
+        const textoOriginal = placeholder.text();
+        placeholder.html('<i class="fas fa-spinner fa-spin me-1"></i> Creando...');
+        
+        const formData = new FormData();
+        formData.append('nombre', nombre);
+        formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+        
+        fetch('{% url "catalogo:crear_marca_ajax" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Añadir al select
+                const newOption = new Option(data.nombre, data.id, true, true);
+                selectElement.append(newOption).trigger('change');
+                selectElement.find(`option[value="new:${nombre}"]`).remove();
+                
+                // Añadir directamente a la lista si está visible
+                if ($('#marcasPanel').is(':visible')) {
+                    const nuevaMarca = {
+                        id: data.id,
+                        nombre: data.nombre,
+                        productos_count: 0
+                    };
+                    
+                    // Si ya existe la lista, añadir a ella
+                    const listaEl = $('#listaMarcasExistentes');
+                    if (listaEl.length > 0 && !listaEl.find('.text-center').length) {
+                        // Añadir con animación al inicio
+                        const nuevoElemento = $(`
+                            <li class="list-group-item d-flex justify-content-between align-items-center" data-id="${data.id}" style="display:none;">
+                                <span class="marca-nombre">${data.nombre}</span>
+                                <div>
+                                    <span class="badge bg-secondary">0 productos</span>
+                                    <button type="button" class="btn btn-sm btn-danger ms-2 btn-eliminar-marca" data-id="${data.id}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </li>
+                        `);
+                        
+                        // Añadir evento al botón eliminar
+                        nuevoElemento.find('.btn-eliminar-marca').on('click', function() {
+                            eliminarMarca(data.id);
+                        });
+                        
+                        // Insertar al principio y mostrar con animación
+                        listaEl.prepend(nuevoElemento);
+                        nuevoElemento.slideDown(300);
+                    } else {
+                        // Si no hay lista visible, recargar
+                        cargarMarcasExistentes();
+                    }
+                }
+                
+                if (typeof toastr !== 'undefined') {
+                    toastr.success('Marca creada correctamente');
+                }
+            } else {
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(data.error || 'Error al crear marca');
+                } else {
+                    alert(data.error || 'Error al crear marca');
+                }
+                placeholder.text(textoOriginal);
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            if (typeof toastr !== 'undefined') {
+                toastr.error('Error de conexión');
+            } else {
+                alert('Error de conexión');
+            }
+            placeholder.text(textoOriginal);
+        });
+    }
+    
+    // Función para eliminar marca
+    function eliminarMarca(marcaId) {
+        if (!confirm('¿Estás seguro de eliminar esta marca?')) {
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('id', marcaId);
+        formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+        
+        fetch('{% url "catalogo:eliminar_marca_ajax" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mostrar notificación
+                if (typeof toastr !== 'undefined') {
+                    toastr.success('Marca eliminada correctamente');
+                }
+                
+                // Eliminar directamente de la lista sin recargar
+                $(`#listaMarcasExistentes li[data-id="${marcaId}"]`).fadeOut(300, function() {
+                    $(this).remove();
+                });
+                
+                // Eliminar del select
+                $(`#id_marca option[value="${marcaId}"]`).remove();
+                $('.select2-marca').trigger('change');
+            } else {
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(data.error || 'Error al eliminar marca');
+                } else {
+                    alert(data.error || 'Error al eliminar marca');
+                }
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            if (typeof toastr !== 'undefined') {
+                toastr.error('Error de conexión');
+            } else {
+                alert('Error de conexión');
+            }
+        });
+    }
+});
+    </script>
+
 {% endblock %}

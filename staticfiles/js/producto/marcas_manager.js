@@ -1,120 +1,177 @@
-// Archivo: static/js/producto/marcas_manager.js
-// Este script maneja la gestión de marcas para el formulario de producto
-
+// Gestor de marcas con eventos personalizados y actualización en tiempo real
 document.addEventListener('DOMContentLoaded', function() {
-    // Obtener referencias a los elementos del DOM
-    const btnGestionarMarcas = document.getElementById('btnGestionarMarcas'); // Botón para abrir el modal
-    const nuevaMarcaNombre = document.getElementById('nuevaMarcaNombre'); // Campo para el nombre de nueva marca
-    const btnAnadirMarca = document.getElementById('btnAnadirMarca'); // Botón para añadir nueva marca
-    const listaMarcasExistentes = document.getElementById('listaMarcasExistentes'); // Contenedor para la lista de marcas
-    const selectorMarca = document.getElementById('id_marca'); // Selector de marca en el formulario principal
+    // Referencias a elementos DOM
+    const marcasContainer = document.getElementById('listaMarcasExistentes'); // Contenedor de la lista de marcas
+    const nuevaMarcaInput = document.getElementById('nuevaMarcaNombre');      // Input para nueva marca
+    const btnAnadirMarca = document.getElementById('btnAnadirMarca');         // Botón añadir
+    const buscadorMarcas = document.getElementById('buscadorMarcas');         // Buscador (opcional)
+    const selectorMarca = document.getElementById('id_marca');                // Selector de marcas en el form principal
     
-    // Obtener URLs para las operaciones AJAX desde atributos data
-    const dataContainer = document.querySelector('[data-url-listar-marcas]');
-    if (!dataContainer) {
-        console.error('No se encontró el contenedor con las URLs para gestión de marcas');
+    // URLs para operaciones AJAX (obtenidas desde atributos data-)
+    const urlContainer = document.querySelector('[data-url-listar-marcas]');
+    const urlListarMarcas = urlContainer ? urlContainer.dataset.urlListarMarcas : null;
+    const urlCrearMarca = urlContainer ? urlContainer.dataset.urlCrearMarca : null;
+    const urlEliminarMarca = urlContainer ? urlContainer.dataset.urlEliminarMarca : null;
+    
+    // Evento personalizado para cuando la lista de marcas cambia
+    const marcasChangedEvent = new CustomEvent('marcasChanged');
+    
+    // Verificar que tenemos las URLs necesarias
+    if (!urlListarMarcas || !urlCrearMarca || !urlEliminarMarca) {
+        console.error('Faltan las URLs para las operaciones AJAX de marcas');
         return;
     }
     
-    const urlListarMarcas = dataContainer.getAttribute('data-url-listar-marcas');
-    const urlCrearMarca = dataContainer.getAttribute('data-url-crear-marca');
-    const urlEliminarMarca = dataContainer.getAttribute('data-url-eliminar-marca');
-    
-    // Función para obtener el token CSRF
-    function getCsrfToken() {
-        return document.querySelector('[name=csrfmiddlewaretoken]').value;
-    }
-    
-    // Función para cargar la lista de marcas
+    // Función para cargar marcas desde el servidor
     function cargarMarcas() {
-        fetch(urlListarMarcas)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error al cargar marcas');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    // Limpiar lista actual
-                    listaMarcasExistentes.innerHTML = '';
-                    
-                    // Si no hay marcas, mostrar mensaje
-                    if (data.marcas.length === 0) {
-                        listaMarcasExistentes.innerHTML = '<div class="text-center p-3">No hay marcas disponibles</div>';
-                        return;
-                    }
-                    
-                    // Crear elemento para cada marca
-                    data.marcas.forEach(marca => {
-                        const marcaItem = document.createElement('div');
-                        marcaItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-                        marcaItem.innerHTML = `
-                            <span>${marca.nombre}</span>
-                            <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-marca" 
-                                    data-marca-id="${marca.id}" data-marca-nombre="${marca.nombre}">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        `;
-                        listaMarcasExistentes.appendChild(marcaItem);
-                    });
-                    
-                    // Añadir event listeners a botones de eliminar
-                    document.querySelectorAll('.btn-eliminar-marca').forEach(btn => {
-                        btn.addEventListener('click', eliminarMarca);
-                    });
-                } else {
-                    console.error('Error:', data.error || 'No se pudieron cargar las marcas');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                listaMarcasExistentes.innerHTML = `
-                    <div class="alert alert-danger">
-                        Error al cargar marcas: ${error.message}
-                    </div>
-                `;
-            });
+        if (!marcasContainer) return;
+        
+        // Mostrar indicador de carga
+        marcasContainer.innerHTML = `
+            <div class="text-center p-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                <span class="ms-2">Cargando marcas...</span>
+            </div>
+        `;
+        
+        // Petición AJAX
+        fetch(urlListarMarcas, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Error al cargar marcas');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                renderizarMarcas(data.marcas);
+                // Actualizar también el selector de marcas
+                actualizarSelectorMarcas(data.marcas);
+            } else {
+                throw new Error(data.error || 'Error desconocido');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            marcasContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    Error al cargar las marcas: ${error.message}
+                </div>
+            `;
+        });
     }
     
-    // Función para añadir nueva marca
-    function anadirMarca() {
-        const nombre = nuevaMarcaNombre.value.trim();
+    // Función para renderizar la lista de marcas
+    function renderizarMarcas(marcas) {
+        if (!marcasContainer) return;
         
-        // Validación básica
-        if (!nombre) {
-            mostrarError('El nombre de la marca es obligatorio');
+        if (marcas.length === 0) {
+            marcasContainer.innerHTML = '<div class="alert alert-info">No hay marcas registradas</div>';
             return;
         }
         
-        // Preparar datos para enviar
+        // Filtrar marcas si hay un término de búsqueda
+        const terminoBusqueda = buscadorMarcas ? buscadorMarcas.value.trim().toLowerCase() : '';
+        if (terminoBusqueda) {
+            marcas = marcas.filter(marca => 
+                marca.nombre.toLowerCase().includes(terminoBusqueda)
+            );
+        }
+        
+        // Crear elementos de lista
+        const ul = document.createElement('div');
+        ul.className = 'list-group';
+        
+        marcas.forEach(marca => {
+            const li = document.createElement('div');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.innerHTML = `
+                <span>${marca.nombre}</span>
+                <span class="text-muted small">(${marca.productos_count || 0} productos)</span>
+                <button type="button" class="btn btn-danger btn-sm eliminar-marca" 
+                        data-id="${marca.id}" ${marca.productos_count > 0 ? 'disabled' : ''}>
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            ul.appendChild(li);
+        });
+        
+        // Actualizar DOM
+        marcasContainer.innerHTML = '';
+        marcasContainer.appendChild(ul);
+        
+        // Configurar botones de eliminar
+        ul.querySelectorAll('.eliminar-marca').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const marcaId = this.dataset.id;
+                eliminarMarca(marcaId);
+            });
+        });
+    }
+    
+    // Función para actualizar el selector de marcas
+    function actualizarSelectorMarcas(marcas) {
+        if (!selectorMarca) return;
+        
+        // Guardar el valor seleccionado actual
+        const valorSeleccionado = selectorMarca.value;
+        
+        // Limpiar el selector
+        selectorMarca.innerHTML = '';
+        
+        // Añadir las marcas ordenadas alfabéticamente
+        marcas.sort((a, b) => a.nombre.localeCompare(b.nombre))
+             .forEach(marca => {
+                const option = document.createElement('option');
+                option.value = marca.id;
+                option.textContent = marca.nombre;
+                selectorMarca.appendChild(option);
+             });
+        
+        // Reseleccionar el valor anterior si existe
+        if (valorSeleccionado && selectorMarca.querySelector(`option[value="${valorSeleccionado}"]`)) {
+            selectorMarca.value = valorSeleccionado;
+        }
+    }
+    
+    // Función para crear una nueva marca
+    function crearMarca(nombreMarca) {
+        // Validación rápida
+        if (!nombreMarca.trim()) {
+            mostrarError('El nombre de la marca no puede estar vacío');
+            return;
+        }
+        
+        // Datos para enviar
         const formData = new FormData();
-        formData.append('nombre', nombre);
+        formData.append('nombre', nombreMarca.trim());
         formData.append('csrfmiddlewaretoken', getCsrfToken());
         
-        // Enviar petición AJAX
+        // Petición AJAX
         fetch(urlCrearMarca, {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Limpiar campo
-                nuevaMarcaNombre.value = '';
-                // Ocultar error si existe
-                ocultarError();
-                // Mostrar mensaje de éxito
-                mostrarMensaje('success', data.message || 'Marca creada exitosamente');
-                // Recargar lista de marcas
+                // Limpiar campo de entrada
+                if (nuevaMarcaInput) nuevaMarcaInput.value = '';
+                
+                // Mostrar notificación
+                mostrarNotificacion('Marca creada correctamente', 'success');
+                
+                // Actualizar la lista de marcas
                 cargarMarcas();
-                // Añadir la nueva marca al selector
-                const option = document.createElement('option');
-                option.value = data.id;
-                option.textContent = data.nombre;
-                selectorMarca.appendChild(option);
-                // Seleccionar la nueva marca
-                selectorMarca.value = data.id;
+                
+                // Disparar evento personalizado
+                document.dispatchEvent(marcasChangedEvent);
             } else {
                 mostrarError(data.error || 'Error al crear la marca');
             }
@@ -125,101 +182,118 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Función para eliminar marca
-    function eliminarMarca(event) {
-        const btn = event.currentTarget;
-        const marcaId = btn.getAttribute('data-marca-id');
-        const marcaNombre = btn.getAttribute('data-marca-nombre');
-        
-        if (!confirm(`¿Estás seguro de que deseas eliminar la marca "${marcaNombre}"?`)) {
+    // Función para eliminar una marca
+    function eliminarMarca(marcaId) {
+        // Pedir confirmación
+        if (!confirm('¿Estás seguro de eliminar esta marca?')) {
             return;
         }
         
-        // Preparar datos para enviar
+        // Datos para enviar
         const formData = new FormData();
         formData.append('id', marcaId);
         formData.append('csrfmiddlewaretoken', getCsrfToken());
         
-        // Enviar petición AJAX
+        // Petición AJAX
         fetch(urlEliminarMarca, {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Mostrar mensaje de éxito
-                mostrarMensaje('success', data.message || 'Marca eliminada exitosamente');
-                // Recargar lista de marcas
+                // Mostrar notificación
+                mostrarNotificacion('Marca eliminada correctamente', 'success');
+                
+                // Actualizar la lista de marcas
                 cargarMarcas();
-                // Eliminar la marca del selector
-                const option = selectorMarca.querySelector(`option[value="${marcaId}"]`);
-                if (option) {
-                    option.remove();
-                }
+                
+                // Disparar evento personalizado
+                document.dispatchEvent(marcasChangedEvent);
             } else {
-                mostrarMensaje('danger', data.error || 'Error al eliminar la marca');
+                mostrarError(data.error || 'Error al eliminar la marca');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            mostrarMensaje('danger', 'Error de conexión al eliminar la marca');
+            mostrarError('Error de conexión al eliminar la marca');
         });
     }
     
-    // Función para mostrar error en el formulario
+    // Funciones auxiliares
     function mostrarError(mensaje) {
-        const feedbackElement = document.getElementById('nuevaMarcaFeedback');
-        feedbackElement.textContent = mensaje;
-        feedbackElement.style.display = 'block';
-        nuevaMarcaNombre.classList.add('is-invalid');
+        const feedbackEl = document.getElementById('nuevaMarcaFeedback');
+        if (feedbackEl) {
+            feedbackEl.textContent = mensaje;
+            feedbackEl.classList.remove('d-none');
+            setTimeout(() => {
+                feedbackEl.classList.add('d-none');
+            }, 3000);
+        } else {
+            alert(mensaje);
+        }
     }
     
-    // Función para ocultar error
-    function ocultarError() {
-        const feedbackElement = document.getElementById('nuevaMarcaFeedback');
-        feedbackElement.style.display = 'none';
-        nuevaMarcaNombre.classList.remove('is-invalid');
+    function mostrarNotificacion(mensaje, tipo) {
+        // Usar toastr si está disponible
+        if (typeof toastr !== 'undefined') {
+            toastr[tipo](mensaje);
+        }
+        // Alternativa simple si toastr no está disponible
+        else {
+            const notif = document.createElement('div');
+            notif.className = `alert alert-${tipo} position-fixed top-0 end-0 m-3`;
+            notif.innerHTML = `
+                ${mensaje}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            document.body.appendChild(notif);
+            
+            setTimeout(() => {
+                notif.remove();
+            }, 3000);
+        }
     }
     
-    // Función para mostrar mensaje general
-    function mostrarMensaje(tipo, mensaje) {
-        // Crear elemento para el mensaje
-        const alertElement = document.createElement('div');
-        alertElement.className = `alert alert-${tipo} alert-dismissible fade show`;
-        alertElement.innerHTML = `
-            ${mensaje}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
+    function getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+    
+    // Configurar eventos cuando el modal se abre - importante para actualizar siempre
+    document.getElementById('gestionMarcasModal')?.addEventListener('show.bs.modal', function() {
+        cargarMarcas();
+    });
+    
+    // Configurar evento para añadir marca
+    if (btnAnadirMarca && nuevaMarcaInput) {
+        btnAnadirMarca.addEventListener('click', function() {
+            crearMarca(nuevaMarcaInput.value);
+        });
         
-        // Añadir al DOM justo después del título del modal
-        const modalBody = document.querySelector('.modal-body');
-        modalBody.insertBefore(alertElement, modalBody.firstChild);
-        
-        // Eliminar mensaje después de 3 segundos
-        setTimeout(() => {
-            alertElement.remove();
-        }, 3000);
+        // También permitir añadir con Enter
+        nuevaMarcaInput.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                crearMarca(this.value);
+            }
+        });
     }
     
-    // Asignar event listeners
-    if (btnGestionarMarcas) {
-        btnGestionarMarcas.addEventListener('click', function() {
-            // Cargar marcas cuando se abre el modal
+    // Configurar buscador si existe
+    if (buscadorMarcas) {
+        buscadorMarcas.addEventListener('input', function() {
+            // Recargar para que filtre automáticamente
             cargarMarcas();
         });
     }
     
-    if (btnAnadirMarca) {
-        btnAnadirMarca.addEventListener('click', anadirMarca);
-    }
+    // Escuchar eventos personalizados
+    document.addEventListener('marcasChanged', function() {
+        console.log('Lista de marcas actualizada');
+    });
     
-    if (nuevaMarcaNombre) {
-        nuevaMarcaNombre.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                anadirMarca();
-            }
-        });
-    }
+    // Carga inicial de marcas
+    cargarMarcas();
 });

@@ -52,8 +52,12 @@ class Marca(models.Model):
     logo = models.ImageField(upload_to='marcas/', blank=True, null=True)
 
     def __str__(self):
-        # Representación textual de la marca
         return self.nombre
+        
+    def save(self, *args, **kwargs):
+        # Normalizar el nombre antes de guardar
+        self.nombre = self.nombre.strip()
+        super().save(*args, **kwargs)
     
 @receiver(post_save, sender=Marca)
 def marca_saved(sender, instance, created, **kwargs):
