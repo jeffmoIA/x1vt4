@@ -1,6 +1,7 @@
 from django import forms
 from django.forms import inlineformset_factory
 from .models import Producto, TallaProducto, ImagenProducto
+from core.utils import sanitize_input, sanitize_html
 
 class ProductoForm(forms.ModelForm):
     class Meta:

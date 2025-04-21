@@ -1,0 +1,725 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Gestionar Marcas - Administración{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+    /* Estilos para mejorar la UX de la gestión de marcas */
+    .marca-card {
+        transition: all 0.2s ease-in-out;
+        border-left: 3px solid transparent;
+    }
+    
+    .marca-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-left: 3px solid #0d6efd;
+    }
+    
+    .marca-count {
+        font-size: 0.9rem;
+        opacity: 0.7;
+    }
+    
+    .marca-actions {
+        opacity: 0.2;
+        transition: opacity 0.2s;
+    }
+    
+    .marca-card:hover .marca-actions {
+        opacity: 1;
+    }
+    
+    /* Animaciones para feedback visual */
+    .marca-new {
+        animation: highlight-green 2s ease-in-out;
+    }
+    
+    @keyframes highlight-green {
+        0% { background-color: rgba(25, 135, 84, 0.2); }
+        100% { background-color: transparent; }
+    }
+    
+    /* Estilos para el formulario de nueva marca */
+    .add-marca-form {
+        border-top: 2px dashed #dee2e6;
+        border-bottom: 2px dashed #dee2e6;
+        background-color: rgba(13, 110, 253, 0.03);
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 0.375rem;
+    }
+    
+    /* Estilo para marcas con productos asociados (no eliminables) */
+    .marca-with-products {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Gestionar Marcas</h1>
+        <div>
+            <a href="{% url 'catalogo:admin_lista_productos' %}" class="btn btn-outline-primary">
+                <i class="fas fa-list"></i> Volver a Productos
+            </a>
+            <button type="button" id="toggleAddForm" class="btn btn-success ms-2">
+                <i class="fas fa-plus"></i> Nueva Marca
+            </button>
+        </div>
+    </div>
+    
+    <!-- Mensajes del sistema -->
+    <div id="messages-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    
+    <!-- Formulario de nueva marca (inicialmente oculto) -->
+    <div class="add-marca-form" id="addMarcaForm" style="display:none;">
+        <h4 class="mb-3">Añadir Nueva Marca</h4>
+        <form id="marcaCreateForm" method="post" action="{% url 'catalogo:crear_marca' %}">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="nombre" class="form-label">Nombre de la Marca</label>
+                    <input type="text" class="form-control" id="nombre" name="nombre" required 
+                           placeholder="Ej: Yamaha, Honda, Alpinestars...">
+                    <div class="form-text">Introduce un nombre único para la marca.</div>
+                </div>
+                <div class="col-md-6">
+                    <label for="descripcion" class="form-label">Descripción (Opcional)</label>
+                    <input type="text" class="form-control" id="descripcion" name="descripcion" 
+                           placeholder="Breve descripción de la marca">
+                </div>
+                <div class="col-12 mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Guardar Marca
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="cancelAddMarca">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Buscador de marcas -->
+    <div class="mb-4">
+        <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" id="searchMarca" class="form-control" placeholder="Buscar marca...">
+            <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Lista de marcas -->
+    <div id="marcas-container" class="row">
+        <!-- Aquí se cargarán las marcas con JavaScript -->
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Cargando marcas...</p>
+        </div>
+    </div>
+    
+    <!-- Paginación -->
+    <nav aria-label="Paginación de marcas" class="mt-4">
+        <ul class="pagination justify-content-center" id="marcasPagination">
+            <!-- La paginación se generará con JavaScript -->
+        </ul>
+    </nav>
+</div>
+
+<!-- Template para las tarjetas de marca -->
+<template id="marca-card-template">
+    <div class="col-md-4 mb-3 marca-item" data-id="${id}">
+        <div class="card marca-card ${productsClass}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="card-title mb-1 marca-nombre">${nombre}</h5>
+                        <p class="card-text marca-count">${productosCount} productos asociados</p>
+                        <p class="card-text text-muted small">${descripcion}</p>
+                    </div>
+                    <div class="marca-actions">
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-primary btn-edit-marca" data-id="${id}" ${disableEdit}>
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-delete-marca" data-id="${id}" ${disableDelete}>
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Modal de confirmación para eliminar -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar la marca <strong id="deleteMarcaName"></strong>?</p>
+                <p class="text-danger">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash"></i> Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar marca -->
+<div class="modal fade" id="editMarcaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Editar Marca</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editMarcaForm">
+                    <input type="hidden" id="edit_marca_id" name="id">
+                    <div class="mb-3">
+                        <label for="edit_nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_descripcion" class="form-label">Descripción</label>
+                        <input type="text" class="form-control" id="edit_descripcion" name="descripcion">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveEditBtn">
+                    <i class="fas fa-save"></i> Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Variables para paginación
+        let currentPage = 1;
+        const itemsPerPage = 12;
+        let totalMarcas = 0;
+        let allMarcas = [];
+        let filteredMarcas = [];
+        
+        // Elementos del DOM
+        const marcasContainer = document.getElementById('marcas-container');
+        const searchInput = document.getElementById('searchMarca');
+        const clearSearchBtn = document.getElementById('clearSearch');
+        const addFormToggleBtn = document.getElementById('toggleAddForm');
+        const addMarcaForm = document.getElementById('addMarcaForm');
+        const cancelAddBtn = document.getElementById('cancelAddMarca');
+        const marcaCreateForm = document.getElementById('marcaCreateForm');
+        const paginationContainer = document.getElementById('marcasPagination');
+        
+        // Modales
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        const editModal = new bootstrap.Modal(document.getElementById('editMarcaModal'));
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        const saveEditBtn = document.getElementById('saveEditBtn');
+        
+        // Cargar marcas al inicio
+        loadMarcas();
+        
+        // Función para cargar marcas del servidor
+        function loadMarcas() {
+            // Mostrar spinner de carga
+            marcasContainer.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando marcas...</p>
+                </div>
+            `;
+            
+            // Hacer la petición AJAX
+            fetch('{% url "catalogo:listar_marcas_ajax" %}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Guardar todas las marcas
+                        allMarcas = data.marcas;
+                        filteredMarcas = [...allMarcas];
+                        totalMarcas = allMarcas.length;
+                        
+                        // Mostrar marcas
+                        renderMarcas();
+                    } else {
+                        showError('Error al cargar marcas');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showError('Error de conexión al cargar las marcas');
+                });
+        }
+        
+        // Función para mostrar las marcas con paginación
+        function renderMarcas() {
+            // Limpiar contenedor
+            marcasContainer.innerHTML = '';
+            
+            // Si no hay marcas
+            if (filteredMarcas.length === 0) {
+                marcasContainer.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            No se encontraron marcas${searchInput.value ? ' que coincidan con la búsqueda' : ''}.
+                        </div>
+                    </div>
+                `;
+                // Ocultar paginación
+                paginationContainer.innerHTML = '';
+                return;
+            }
+            
+            // Calcular índices para paginación
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, filteredMarcas.length);
+            const marcasToShow = filteredMarcas.slice(startIndex, endIndex);
+            
+            // Obtener template
+            const template = document.getElementById('marca-card-template').innerHTML;
+            
+            // Añadir cada marca al contenedor
+            marcasToShow.forEach(marca => {
+                const canDelete = marca.productos_count === 0;
+                const productsClass = canDelete ? '' : 'marca-with-products';
+                const disableDelete = canDelete ? '' : 'disabled title="No se puede eliminar: tiene productos asociados"';
+                
+                // Crear HTML de la marca usando template literal
+                const marcaHtml = template
+                    .replace('${id}', marca.id)
+                    .replace('${nombre}', marca.nombre)
+                    .replace('${descripcion}', marca.descripcion || 'Sin descripción')
+                    .replace('${productosCount}', marca.productos_count)
+                    .replace('${productsClass}', productsClass)
+                    .replace('${disableDelete}', disableDelete)
+                    .replace('${disableEdit}', ''); // Siempre se puede editar
+                
+                // Crear elemento temporal para convertir string a DOM
+                const temp = document.createElement('div');
+                temp.innerHTML = marcaHtml;
+                
+                // Añadir al contenedor
+                marcasContainer.appendChild(temp.firstElementChild);
+            });
+            
+            // Actualizar paginación
+            updatePagination();
+            
+            // Configurar eventos para botones de acción
+            setupActionButtons();
+        }
+        
+        // Actualizar la paginación
+        function updatePagination() {
+            // Calcular número total de páginas
+            const totalPages = Math.ceil(filteredMarcas.length / itemsPerPage);
+            
+            // Si solo hay una página, ocultar paginación
+            if (totalPages <= 1) {
+                paginationContainer.innerHTML = '';
+                return;
+            }
+            
+            // Generar HTML de paginación
+            let paginationHtml = '';
+            
+            // Botón anterior
+            paginationHtml += `
+                <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${currentPage - 1}" aria-label="Anterior">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+            `;
+            
+            // Páginas
+            for (let i = 1; i <= totalPages; i++) {
+                paginationHtml += `
+                    <li class="page-item ${currentPage === i ? 'active' : ''}">
+                        <a class="page-link" href="#" data-page="${i}">${i}</a>
+                    </li>
+                `;
+            }
+            
+            // Botón siguiente
+            paginationHtml += `
+                <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${currentPage + 1}" aria-label="Siguiente">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            `;
+            
+            // Actualizar DOM
+            paginationContainer.innerHTML = paginationHtml;
+            
+            // Añadir eventos a los enlaces de paginación
+            paginationContainer.querySelectorAll('.page-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const page = parseInt(this.dataset.page);
+                    
+                    // Si no es un número o está deshabilitado, ignorar
+                    if (isNaN(page) || this.parentElement.classList.contains('disabled') || 
+                        this.parentElement.classList.contains('active')) {
+                        return;
+                    }
+                    
+                    // Cambiar página y renderizar
+                    currentPage = page;
+                    renderMarcas();
+                    
+                    // Hacer scroll al principio de la lista
+                    window.scrollTo({
+                        top: marcasContainer.offsetTop - 20,
+                        behavior: 'smooth'
+                    });
+                });
+            });
+        }
+        
+        // Configurar botones de acción para marcas
+        function setupActionButtons() {
+            // Botones de eliminar
+            document.querySelectorAll('.btn-delete-marca').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const marcaId = this.dataset.id;
+                    const marcaElement = document.querySelector(`.marca-item[data-id="${marcaId}"]`);
+                    const marcaNombre = marcaElement.querySelector('.marca-nombre').textContent;
+                    
+                    // Configurar el modal de confirmación
+                    document.getElementById('deleteMarcaName').textContent = marcaNombre;
+                    confirmDeleteBtn.dataset.id = marcaId;
+                    
+                    // Mostrar modal
+                    deleteModal.show();
+                });
+            });
+            
+            // Botones de editar
+            document.querySelectorAll('.btn-edit-marca').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const marcaId = this.dataset.id;
+                    const marca = allMarcas.find(m => m.id == marcaId);
+                    
+                    // Configurar el formulario de edición
+                    document.getElementById('edit_marca_id').value = marca.id;
+                    document.getElementById('edit_nombre').value = marca.nombre;
+                    document.getElementById('edit_descripcion').value = marca.descripcion || '';
+                    
+                    // Mostrar modal
+                    editModal.show();
+                });
+            });
+        }
+        
+        // Mostrar mensaje de error
+        function showError(message) {
+            const messagesContainer = document.getElementById('messages-container');
+            messagesContainer.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+        }
+        
+        // Mostrar mensaje de éxito
+        function showSuccess(message) {
+            const messagesContainer = document.getElementById('messages-container');
+            messagesContainer.innerHTML = `
+                <div class="alert alert-success alert-dismissible fade show">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+        }
+        
+        // Eventos para formulario de búsqueda
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            
+            // Filtrar marcas
+            if (searchTerm === '') {
+                filteredMarcas = [...allMarcas];
+            } else {
+                filteredMarcas = allMarcas.filter(marca => 
+                    marca.nombre.toLowerCase().includes(searchTerm) ||
+                    (marca.descripcion && marca.descripcion.toLowerCase().includes(searchTerm))
+                );
+            }
+            
+            // Resetear a primera página y renderizar
+            currentPage = 1;
+            renderMarcas();
+        });
+        
+        // Botón para limpiar búsqueda
+        clearSearchBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            filteredMarcas = [...allMarcas];
+            currentPage = 1;
+            renderMarcas();
+        });
+        
+        // Eventos para formulario de nueva marca
+        addFormToggleBtn.addEventListener('click', function() {
+            addMarcaForm.style.display = addMarcaForm.style.display === 'none' ? 'block' : 'none';
+            
+            // Si se muestra, enfocar el campo de nombre
+            if (addMarcaForm.style.display === 'block') {
+                document.getElementById('nombre').focus();
+            }
+        });
+        
+        // Botón cancelar en formulario
+        cancelAddBtn.addEventListener('click', function() {
+            addMarcaForm.style.display = 'none';
+            marcaCreateForm.reset();
+        });
+        
+        // Envío de formulario nueva marca
+        marcaCreateForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Obtener datos del formulario
+            const formData = new FormData(this);
+            
+            // Deshabilitar botón y mostrar cargando
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            
+            // Enviar petición
+            fetch('{% url "catalogo:crear_marca" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mostrar mensaje de éxito
+                    showSuccess(`Marca "${data.marca.nombre}" creada correctamente`);
+                    
+                    // Añadir la nueva marca a la lista
+                    const newMarca = data.marca;
+                    allMarcas.unshift(newMarca); // Añadir al principio
+                    filteredMarcas = [...allMarcas]; // Actualizar filtradas
+                    
+                    // Resetear formulario y ocultarlo
+                    this.reset();
+                    addMarcaForm.style.display = 'none';
+                    
+                    // Mostrar primera página donde estará la nueva marca
+                    currentPage = 1;
+                    renderMarcas();
+                    
+                    // Resaltar la nueva marca
+                    setTimeout(() => {
+                        const newMarcaElement = document.querySelector(`.marca-item[data-id="${newMarca.id}"]`);
+                        if (newMarcaElement) {
+                            newMarcaElement.querySelector('.marca-card').classList.add('marca-new');
+                        }
+                    }, 100);
+                } else {
+                    // Mostrar error
+                    showError(data.error || 'Error al crear la marca');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Error de conexión al crear la marca');
+            })
+            .finally(() => {
+                // Restaurar botón
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+        
+        // Confirmar eliminación de marca
+        confirmDeleteBtn.addEventListener('click', function() {
+            const marcaId = this.dataset.id;
+            
+            // Deshabilitar botón y mostrar cargando
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminando...';
+            
+            // Preparar datos
+            const formData = new FormData();
+            formData.append('id', marcaId);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            
+            // Enviar petición
+            fetch('{% url "catalogo:eliminar_marca" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mostrar mensaje de éxito
+                    showSuccess(data.message || 'Marca eliminada correctamente');
+                    
+                    // Quitar la marca de la lista
+                    allMarcas = allMarcas.filter(m => m.id != marcaId);
+                    filteredMarcas = filteredMarcas.filter(m => m.id != marcaId);
+                    
+                    // Ocultar modal
+                    deleteModal.hide();
+                    
+                    // Actualizar vista (manteniendo la página actual si es posible)
+                    const maxPage = Math.ceil(filteredMarcas.length / itemsPerPage);
+                    if (currentPage > maxPage && maxPage > 0) {
+                        currentPage = maxPage;
+                    }
+                    renderMarcas();
+                } else {
+                    // Mostrar error
+                    showError(data.error || 'Error al eliminar la marca');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Error de conexión al eliminar la marca');
+            })
+            .finally(() => {
+                // Restaurar botón
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
+            });
+        });
+        
+        // Guardar cambios en marca
+        saveEditBtn.addEventListener('click', function() {
+            // Obtener datos del formulario
+            const marcaId = document.getElementById('edit_marca_id').value;
+            const nombre = document.getElementById('edit_nombre').value.trim();
+            const descripcion = document.getElementById('edit_descripcion').value.trim();
+            
+            // Validación básica
+            if (!nombre) {
+                alert('El nombre de la marca es obligatorio');
+                return;
+            }
+            
+            // Deshabilitar botón y mostrar cargando
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            
+            // Preparar datos
+            const formData = new FormData();
+            formData.append('id', marcaId);
+            formData.append('nombre', nombre);
+            formData.append('descripcion', descripcion);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            
+            // Enviar petición
+            fetch('{% url "catalogo:editar_marca" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mostrar mensaje de éxito
+                    showSuccess(`Marca "${nombre}" actualizada correctamente`);
+                    
+                    // Actualizar la marca en la lista
+                    const index = allMarcas.findIndex(m => m.id == marcaId);
+                    if (index !== -1) {
+                        allMarcas[index] = { 
+                            ...allMarcas[index], 
+                            nombre, 
+                            descripcion 
+                        };
+                    }
+                    
+                    // Actualizar también en la lista filtrada
+                    const filteredIndex = filteredMarcas.findIndex(m => m.id == marcaId);
+                    if (filteredIndex !== -1) {
+                        filteredMarcas[filteredIndex] = { 
+                            ...filteredMarcas[filteredIndex], 
+                            nombre, 
+                            descripcion 
+                        };
+                    }
+                    
+                    // Ocultar modal
+                    editModal.hide();
+                    
+                    // Actualizar vista
+                    renderMarcas();
+                    
+                    // Resaltar la marca actualizada
+                    setTimeout(() => {
+                        const updatedMarcaElement = document.querySelector(`.marca-item[data-id="${marcaId}"]`);
+                        if (updatedMarcaElement) {
+                            updatedMarcaElement.querySelector('.marca-card').classList.add('marca-new');
+                        }
+                    }, 100);
+                } else {
+                    // Mostrar error
+                    showError(data.error || 'Error al actualizar la marca');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Error de conexión al actualizar la marca');
+            })
+            .finally(() => {
+                // Restaurar botón
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+            });
+        });
+    });
+</script>
+{% endblock %}

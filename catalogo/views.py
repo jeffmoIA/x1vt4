@@ -85,11 +85,13 @@ def crear_producto(request):
         form = ProductoForm()
         talla_formset = TallaFormSet(prefix='tallas')
         imagen_formset = ImagenFormSet(prefix='imagenes')
+        marcas = Marca.objects.all().order_by('nombre')
     
     return render(request, 'catalogo/admin/crear_producto.html', {
         'form': form,
         'talla_formset': talla_formset,
-        'imagen_formset': imagen_formset
+        'imagen_formset': imagen_formset,
+        'marcas': marcas  # Añadir marcas al contexto
     })
 
 
@@ -148,6 +150,7 @@ def editar_producto(request, producto_id):
         form = ProductoForm(instance=producto)
         talla_formset = TallaFormSet(instance=producto, prefix='tallas')
         imagen_formset = ImagenFormSet(instance=producto, prefix='imagenes')
+        marcas = Marca.objects.all().order_by('nombre')
     
     # Renderizar plantilla
     return render(request, 'catalogo/admin/editar_producto.html', {
@@ -155,6 +158,7 @@ def editar_producto(request, producto_id):
         'talla_formset': talla_formset,
         'imagen_formset': imagen_formset,
         'producto': producto,
+        'marcas': marcas,
         'accion': 'Editar'
     })
 
@@ -500,15 +504,202 @@ def admin_productos_data(request):
             'error': str(e)
         }, status=500)
         
+# Vista para mostrar la página de gestión de marcas
+@login_required
+@user_passes_test(es_admin)
+def gestionar_marcas(request):
+    """
+    Vista para la página de administración de marcas.
+    Permite ver, crear, editar y eliminar marcas.
+    """
+    # Simplemente renderizamos la plantilla, el resto se maneja con AJAX
+    return render(request, 'catalogo/admin/gestionar_marcas.html')
+
+# Vista para crear una marca (tanto desde la página de gestión como desde los formularios de producto)
+@login_required
+@user_passes_test(es_admin)
+def crear_marca(request):
+    """
+    Vista para crear una nueva marca.
+    Acepta solicitudes AJAX POST y devuelve JSON.
+    """
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        descripcion = request.POST.get('descripcion', '').strip()
+        
+        # Validación básica
+        if not nombre:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El nombre de la marca es obligatorio'
+            }, status=400)
+        
+        try:
+            # Verificar si ya existe una marca con ese nombre (case insensitive)
+            marca_existente = Marca.objects.filter(nombre__iexact=nombre).first()
+            if marca_existente:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Ya existe una marca con el nombre "{nombre}"'
+                }, status=400)
+            
+            # Crear la marca
+            marca = Marca.objects.create(
+                nombre=nombre,
+                descripcion=descripcion
+            )
+            
+            # Devolver respuesta exitosa con los datos de la marca
+            return JsonResponse({
+                'success': True,
+                'marca': {
+                    'id': marca.id,
+                    'nombre': marca.nombre,
+                    'descripcion': marca.descripcion,
+                    'productos_count': 0  # Nueva marca sin productos
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Error al crear marca: {str(e)}")
+            return JsonResponse({
+                'success': False, 
+                'error': 'Error al crear la marca. Por favor, inténtelo de nuevo.'
+            }, status=500)
+    
+    # Si no es POST, devolver error
+    return JsonResponse({
+        'success': False, 
+        'error': 'Método no permitido'
+    }, status=405)
+
+# Vista para editar una marca
+@login_required
+@user_passes_test(es_admin)
+def editar_marca(request):
+    """
+    Vista para editar una marca existente.
+    Acepta solicitudes AJAX POST y devuelve JSON.
+    """
+    if request.method == 'POST':
+        marca_id = request.POST.get('id')
+        nombre = request.POST.get('nombre', '').strip()
+        descripcion = request.POST.get('descripcion', '').strip()
+        
+        # Validaciones básicas
+        if not marca_id:
+            return JsonResponse({
+                'success': False, 
+                'error': 'ID de marca no proporcionado'
+            }, status=400)
+            
+        if not nombre:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El nombre de la marca es obligatorio'
+            }, status=400)
+        
+        try:
+            # Obtener la marca
+            marca = get_object_or_404(Marca, id=marca_id)
+            
+            # Verificar si ya existe otra marca con ese nombre
+            if Marca.objects.filter(nombre__iexact=nombre).exclude(id=marca_id).exists():
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Ya existe otra marca con el nombre "{nombre}"'
+                }, status=400)
+            
+            # Actualizar datos
+            marca.nombre = nombre
+            marca.descripcion = descripcion
+            marca.save()
+            
+            # Devolver respuesta exitosa
+            return JsonResponse({
+                'success': True,
+                'marca': {
+                    'id': marca.id,
+                    'nombre': marca.nombre,
+                    'descripcion': marca.descripcion,
+                    'productos_count': marca.productos.count()
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Error al editar marca: {str(e)}")
+            return JsonResponse({
+                'success': False, 
+                'error': 'Error al editar la marca. Por favor, inténtelo de nuevo.'
+            }, status=500)
+    
+    # Si no es POST, devolver error
+    return JsonResponse({
+        'success': False, 
+        'error': 'Método no permitido'
+    }, status=405)
+
+# Vista para eliminar una marca
+@login_required
+@user_passes_test(es_admin)
+def eliminar_marca(request):
+    """
+    Vista para eliminar una marca.
+    Solo permite eliminar marcas que no tengan productos asociados.
+    Acepta solicitudes AJAX POST y devuelve JSON.
+    """
+    if request.method == 'POST':
+        marca_id = request.POST.get('id')
+        
+        if not marca_id:
+            return JsonResponse({
+                'success': False, 
+                'error': 'ID de marca no proporcionado'
+            }, status=400)
+        
+        try:
+            # Obtener la marca
+            marca = get_object_or_404(Marca, id=marca_id)
+            
+            # Verificar si tiene productos asociados
+            if marca.productos.exists():
+                return JsonResponse({
+                    'success': False,
+                    'error': f'No se puede eliminar la marca "{marca.nombre}" porque tiene productos asociados'
+                }, status=400)
+            
+            # Guardar el nombre para el mensaje
+            nombre_marca = marca.nombre
+            
+            # Eliminar la marca
+            marca.delete()
+            
+            # Devolver respuesta exitosa
+            return JsonResponse({
+                'success': True,
+                'message': f'La marca "{nombre_marca}" ha sido eliminada correctamente'
+            })
+            
+        except Exception as e:
+            logger.error(f"Error al eliminar marca: {str(e)}")
+            return JsonResponse({
+                'success': False, 
+                'error': 'Error al eliminar la marca. Por favor, inténtelo de nuevo.'
+            }, status=500)
+    
+    # Si no es POST, devolver error
+    return JsonResponse({
+        'success': False, 
+        'error': 'Método no permitido'
+    }, status=405)
+
+# Mejora de la vista actual para listar marcas
 @login_required
 @user_passes_test(es_admin)
 def listar_marcas_ajax(request):
     """
     Vista mejorada para listar todas las marcas en formato JSON,
-    incluyendo conteo de productos para cada marca.
-    
-    Returns:
-        JsonResponse: Lista de marcas con su conteo de productos
+    ordenadas por nombre y con conteo de productos.
     """
     try:
         # Caché de 2 minutos para la lista de marcas (mejora rendimiento)
@@ -521,11 +712,12 @@ def listar_marcas_ajax(request):
                 productos_count=Count('productos')
             ).order_by('nombre')
             
-            # Crear lista de diccionarios con id, nombre y conteo de productos
+            # Crear lista de diccionarios con id, nombre, descripción y conteo de productos
             marcas_list = [
                 {
                     'id': marca.id, 
                     'nombre': marca.nombre,
+                    'descripcion': marca.descripcion or '',
                     'productos_count': marca.productos_count
                 } 
                 for marca in marcas
@@ -540,115 +732,28 @@ def listar_marcas_ajax(request):
         # En caso de error, registrar y retornar mensaje
         logger.error(f"Error al listar marcas: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
-@login_required
-@user_passes_test(es_admin)
-@require_POST
-@transaction.atomic  # Esto es crucial para evitar duplicados
-def crear_marca_ajax(request):
-    """
-    Vista optimizada para crear una marca vía AJAX.
     
-    Returns:
-        JsonResponse: Información de la marca creada o error
+@login_required
+def obtener_marcas_json(request):
+    """
+    Vista para obtener todas las marcas en formato JSON.
+    Se usa en los selectores de marcas.
     """
     try:
-        # Obtener el nombre de la marca y limpiarlo
-        nombre = request.POST.get('nombre', '').strip()
+        # Obtener todas las marcas ordenadas por nombre
+        marcas = Marca.objects.all().order_by('nombre')
         
-        # Validación
-        if not nombre:
-            return JsonResponse({
-                'success': False, 
-                'error': 'El nombre de la marca es requerido'
-            }, status=400)
+        # Convertir a lista de diccionarios
+        marcas_json = [
+            {
+                'id': marca.id,
+                'nombre': marca.nombre,
+                'descripcion': marca.descripcion or ''
+            }
+            for marca in marcas
+        ]
         
-        # Verificar si ya existe (case insensitive)
-        marca_existente = Marca.objects.filter(nombre__iexact=nombre).first()
-        if marca_existente:
-            # Si existe, devolver la marca existente con mensaje apropiado
-            return JsonResponse({
-                'success': True,
-                'id': marca_existente.id,
-                'nombre': marca_existente.nombre,
-                'message': 'Marca existente seleccionada',
-                'existed': True
-            })
-        
-        # Crear nueva marca
-        marca = Marca.objects.create(nombre=nombre)
-        
-        # Invalidar caché de marcas
-        cache.delete('marcas_list_admin')
-        
-        # Respuesta exitosa
-        return JsonResponse({
-            'success': True,
-            'id': marca.id,
-            'nombre': marca.nombre,
-            'message': 'Marca creada correctamente',
-            'existed': False
-        })
-    except IntegrityError as e:
-        # Manejo específico para errores de integridad (duplicados)
-        logger.warning(f"Error de integridad al crear marca: {str(e)}")
-        return JsonResponse({
-            'success': False, 
-            'error': 'Ya existe una marca con este nombre'
-        }, status=400)
+        return JsonResponse({'success': True, 'marcas': marcas_json})
     except Exception as e:
-        # Manejo general de excepciones
-        logger.error(f"Error al crear marca: {str(e)}")
-        return JsonResponse({
-            'success': False, 
-            'error': str(e)
-        }, status=500)
-
-@login_required
-@user_passes_test(es_admin)
-@require_POST
-def eliminar_marca_ajax(request):
-    """
-    Vista para eliminar una marca mediante AJAX.
-    
-    Returns:
-        JsonResponse: Resultado de la operación
-    """
-    try:
-        # Obtener el ID de la marca
-        marca_id = request.POST.get('id')
-        
-        if not marca_id:
-            return JsonResponse({'success': False, 'error': 'ID de marca no proporcionado'}, status=400)
-        
-        # Obtener la marca o devolver error
-        try:
-            marca = Marca.objects.get(id=marca_id)
-        except Marca.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'La marca no existe'}, status=404)
-        
-        # Verificar si hay productos asociados
-        if marca.productos.exists():
-            return JsonResponse({
-                'success': False, 
-                'error': f'No se puede eliminar la marca "{marca.nombre}" porque tiene productos asociados'
-            }, status=400)
-        
-        # Guardar el nombre para el mensaje de confirmación
-        nombre_marca = marca.nombre
-        
-        # Eliminar la marca
-        marca.delete()
-        
-        # Invalidar caché de marcas
-        cache.delete('marcas_list_admin')
-        
-        # Retornar respuesta exitosa
-        return JsonResponse({
-            'success': True,
-            'message': f'La marca "{nombre_marca}" ha sido eliminada exitosamente'
-        })
-    except Exception as e:
-        # Registrar el error y devolver respuesta de error
-        logger.error(f"Error al eliminar marca: {str(e)}")
+        logger.error(f"Error al obtener marcas JSON: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
