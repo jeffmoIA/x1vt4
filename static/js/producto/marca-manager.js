@@ -1,227 +1,89 @@
-/**
- * Gestor simplificado de marcas para productos
- * No requiere dependencias externas como Select2 o Bootstrap
- */
-class SimpleMarcaManager {
-    constructor(options = {}) {
-        // Opciones y configuración
-        this.options = Object.assign({
-            selectorId: 'id_marca',              // ID del selector de marcas
-            createButtonId: 'btn-crear-marca',   // ID del botón para crear marcas
-            containerSelector: '.marca-manager', // Selector del contenedor principal
-            urls: {
-                listar: '',                     // URL para listar marcas (AJAX)
-                crear: '',                      // URL para crear marcas (AJAX)
-                eliminar: ''                    // URL para eliminar marcas (AJAX)
-            }
-        }, options);
-        
-        // Referencias a elementos del DOM
-        this.selector = document.getElementById(this.options.selectorId);
-        this.container = document.querySelector(this.options.containerSelector);
-        this.createButton = document.getElementById(this.options.createButtonId);
-        
-        // Estado interno
-        this.isManagerOpen = false;
-        this.csrfToken = this.getCsrfToken();
-        
-        // Inicialización
-        this.init();
-    }
+// Script simple para gestionar marcas sin dependencias externas
+document.addEventListener('DOMContentLoaded', function() {
+    // Referencias a elementos
+    const btnGestionar = document.getElementById('btn-gestionar-marca');
+    const marcasPanel = document.getElementById('marcasPanel');
+    const formNuevaMarca = document.getElementById('formNuevaMarca');
+    const inputNuevaMarca = document.getElementById('nuevaMarcaNombre');
+    const btnGuardarMarca = document.getElementById('btnGuardarMarca');
+    const listaMarcas = document.getElementById('listaMarcas');
+    const selectorMarca = document.getElementById('id_marca');
+    const buscarMarca = document.getElementById('buscarMarca');
+    const marcaMessage = document.getElementById('marcaMessage');
     
-    // Inicializar el gestor
-    init() {
-        if (!this.container || !this.selector) {
-            console.error('No se encontraron los elementos necesarios para el gestor de marcas');
-            return;
-        }
-        
-        // Crear elementos del gestor si no existen
-        this.createManagerElements();
-        
-        // Configurar eventos
-        this.setupEvents();
-        
-        // Cargar las marcas iniciales
-        this.loadMarcas();
-    }
+    // URLs para operaciones AJAX
+    const urlListar = document.getElementById('url-listar-marcas')?.value || '';
+    const urlCrear = document.getElementById('url-crear-marca')?.value || '';
+    const urlEliminar = document.getElementById('url-eliminar-marca')?.value || '';
     
-    // Crear los elementos de UI del gestor
-    createManagerElements() {
-        // Crear panel de gestión de marcas si no existe
-        if (!this.container.querySelector('.marca-panel')) {
-            const panel = document.createElement('div');
-            panel.className = 'marca-panel';
-            panel.innerHTML = `
-                <div class="marca-form">
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="new-marca-name" placeholder="Nombre de la marca">
-                        <button type="button" class="btn btn-primary" id="save-marca-btn">
-                            <i class="fas fa-save"></i> Guardar
-                        </button>
-                    </div>
-                    <div class="form-message mt-2"></div>
-                </div>
-                <div class="marca-list-container mt-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">Marcas existentes</h6>
-                        <input type="text" class="form-control form-control-sm search-marca" 
-                               placeholder="Buscar..." style="width: 150px;">
-                    </div>
-                    <div class="marca-list">
-                        <div class="loading-indicator">Cargando marcas...</div>
-                    </div>
-                </div>
-            `;
-            
-            // Guardar referencias
-            this.container.appendChild(panel);
-            this.panel = panel;
-            this.newMarcaInput = panel.querySelector('#new-marca-name');
-            this.saveMarcaButton = panel.querySelector('#save-marca-btn');
-            this.marcaListContainer = panel.querySelector('.marca-list');
-            this.messageContainer = panel.querySelector('.form-message');
-            this.searchInput = panel.querySelector('.search-marca');
-            
-            // Inicialmente oculto
-            panel.style.display = 'none';
-        }
-    }
+    // Obtener token CSRF
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
     
-    // Configurar todos los eventos
-    setupEvents() {
-        // Evento para mostrar/ocultar panel
-        if (this.createButton) {
-            this.createButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.toggleManager();
-            });
-        }
-        
-        // Evento para guardar marca
-        if (this.saveMarcaButton) {
-            this.saveMarcaButton.addEventListener('click', () => {
-                this.createMarca();
-            });
-        }
-        
-        // Evento para buscar en la lista
-        if (this.searchInput) {
-            this.searchInput.addEventListener('input', () => {
-                this.filterMarcas(this.searchInput.value);
-            });
-        }
-        
-        // Evento para tecla Enter en el input
-        if (this.newMarcaInput) {
-            this.newMarcaInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    this.createMarca();
-                }
-            });
-        }
-        
-        // Evento para cerrar el panel al hacer clic fuera
-        document.addEventListener('click', (e) => {
-            if (this.isManagerOpen && 
-                !this.container.contains(e.target) && 
-                e.target !== this.createButton) {
-                this.closeManager();
-            }
-        });
-    }
-    
-    // Mostrar/ocultar el panel de gestión
-    toggleManager() {
-        if (this.isManagerOpen) {
-            this.closeManager();
+    // Función para mostrar/ocultar panel
+    function togglePanel() {
+        if (marcasPanel.style.display === 'none') {
+            marcasPanel.style.display = 'block';
+            cargarMarcas();
         } else {
-            this.openManager();
+            marcasPanel.style.display = 'none';
         }
     }
     
-    // Abrir el panel
-    openManager() {
-        if (this.panel) {
-            this.panel.style.display = 'block';
-            this.isManagerOpen = true;
-            
-            // Focus en el input
-            setTimeout(() => {
-                this.newMarcaInput.focus();
-            }, 100);
-            
-            // Si no hay datos cargados, cargarlos
-            if (!this.marcaListContainer.querySelector('.marca-item')) {
-                this.loadMarcas();
-            }
-        }
-    }
-    
-    // Cerrar el panel
-    closeManager() {
-        if (this.panel) {
-            this.panel.style.display = 'none';
-            this.isManagerOpen = false;
-        }
-    }
-    
-    // Cargar marcas desde el servidor
-    loadMarcas() {
-        if (!this.options.urls.listar) {
-            this.showMessage('Error: URL para listar marcas no configurada', 'error');
+    // Cargar marcas
+    function cargarMarcas() {
+        if (!urlListar) {
+            mostrarMensaje('Error: URL para listar marcas no configurada', 'danger');
             return;
         }
         
-        this.marcaListContainer.innerHTML = '<div class="loading-indicator">Cargando marcas...</div>';
+        listaMarcas.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                <span class="ms-2">Cargando marcas...</span>
+            </div>
+        `;
         
-        fetch(this.options.urls.listar, {
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                this.renderMarcaList(data.marcas);
-            } else {
-                this.showMessage('Error al cargar marcas: ' + (data.error || 'Error desconocido'), 'error');
-                this.marcaListContainer.innerHTML = '<div class="error-message">Error al cargar marcas</div>';
-            }
-        })
-        .catch(error => {
-            console.error('Error al cargar marcas:', error);
-            this.marcaListContainer.innerHTML = '<div class="error-message">Error de conexión</div>';
-        });
+        fetch(urlListar)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderizarMarcas(data.marcas);
+                } else {
+                    mostrarMensaje(data.error || 'Error al cargar marcas', 'danger');
+                    listaMarcas.innerHTML = '<div class="alert alert-danger">Error al cargar marcas</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error al cargar marcas:', error);
+                listaMarcas.innerHTML = '<div class="alert alert-danger">Error de conexión</div>';
+            });
     }
     
-    // Renderizar la lista de marcas
-    renderMarcaList(marcas) {
-        if (!marcas || !marcas.length) {
-            this.marcaListContainer.innerHTML = '<div class="empty-message">No hay marcas disponibles</div>';
+    // Renderizar lista de marcas
+    function renderizarMarcas(marcas) {
+        if (!marcas || marcas.length === 0) {
+            listaMarcas.innerHTML = '<div class="alert alert-info">No hay marcas disponibles</div>';
             return;
         }
         
-        let html = '<ul class="list-group">';
+        let html = '<ul class="list-group list-group-flush">';
         
         marcas.forEach(marca => {
-            const canDelete = marca.productos_count === 0;
+            const puedeEliminar = marca.productos_count === 0;
             
             html += `
-                <li class="list-group-item marca-item d-flex justify-content-between align-items-center"
+                <li class="list-group-item d-flex justify-content-between align-items-center marca-item" 
                     data-id="${marca.id}" data-nombre="${marca.nombre}">
                     <div>
                         <span class="marca-nombre">${marca.nombre}</span>
                         <small class="text-muted d-block">${marca.productos_count} productos</small>
                     </div>
-                    <div class="marca-actions">
-                        <button type="button" class="btn btn-sm btn-primary select-marca-btn">
+                    <div>
+                        <button type="button" class="btn btn-sm btn-primary btn-usar-marca">
                             Usar
                         </button>
-                        ${canDelete ? `
-                            <button type="button" class="btn btn-sm btn-danger delete-marca-btn ms-1">
+                        ${puedeEliminar ? `
+                            <button type="button" class="btn btn-sm btn-danger btn-eliminar-marca ms-1">
                                 <i class="fas fa-trash"></i>
                             </button>
                         ` : ''}
@@ -231,36 +93,181 @@ class SimpleMarcaManager {
         });
         
         html += '</ul>';
-        this.marcaListContainer.innerHTML = html;
+        listaMarcas.innerHTML = html;
         
         // Añadir eventos a los botones
-        this.marcaListContainer.querySelectorAll('.select-marca-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const item = e.target.closest('.marca-item');
-                const id = item.dataset.id;
-                const nombre = item.dataset.nombre;
-                this.selectMarca(id, nombre);
+        document.querySelectorAll('.btn-usar-marca').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const li = this.closest('.marca-item');
+                const id = li.dataset.id;
+                const nombre = li.dataset.nombre;
+                
+                // Seleccionar en el select
+                if (selectorMarca) {
+                    selectorMarca.value = id;
+                }
+                
+                mostrarMensaje(`Marca "${nombre}" seleccionada`, 'success');
+                marcasPanel.style.display = 'none';
             });
         });
         
-        this.marcaListContainer.querySelectorAll('.delete-marca-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const item = e.target.closest('.marca-item');
-                const id = item.dataset.id;
-                const nombre = item.dataset.nombre;
-                this.confirmDeleteMarca(id, nombre);
+        document.querySelectorAll('.btn-eliminar-marca').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const li = this.closest('.marca-item');
+                const id = li.dataset.id;
+                const nombre = li.dataset.nombre;
+                
+                if (confirm(`¿Estás seguro de eliminar la marca "${nombre}"?`)) {
+                    eliminarMarca(id, nombre, li);
+                }
             });
         });
     }
     
-    // Filtrar marcas según texto de búsqueda
-    filterMarcas(searchText) {
-        const items = this.marcaListContainer.querySelectorAll('.marca-item');
-        const search = searchText.toLowerCase();
+    // Crear marca
+    function crearMarca(nombre) {
+        if (!nombre) {
+            mostrarMensaje('El nombre de la marca es requerido', 'danger');
+            return;
+        }
+        
+        // Mostrar cargando
+        btnGuardarMarca.disabled = true;
+        btnGuardarMarca.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+        
+        // Preparar datos
+        const formData = new FormData();
+        formData.append('nombre', nombre);
+        formData.append('csrfmiddlewaretoken', csrftoken);
+        
+        // Enviar solicitud
+        fetch(urlCrear, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Limpiar input
+                inputNuevaMarca.value = '';
+                
+                // Mostrar mensaje
+                mostrarMensaje(`Marca "${data.nombre}" ${data.existed ? 'seleccionada' : 'creada'} correctamente`, 'success');
+                
+                // Añadir al select si no existe
+                if (!document.querySelector(`#id_marca option[value="${data.id}"]`)) {
+                    const option = document.createElement('option');
+                    option.value = data.id;
+                    option.text = data.nombre;
+                    selectorMarca.appendChild(option);
+                }
+                
+                // Seleccionar en el select
+                selectorMarca.value = data.id;
+                
+                // Recargar lista
+                cargarMarcas();
+            } else {
+                mostrarMensaje(data.error || 'Error al crear la marca', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarMensaje('Error de conexión', 'danger');
+        })
+        .finally(() => {
+            // Restaurar botón
+            btnGuardarMarca.disabled = false;
+            btnGuardarMarca.innerHTML = '<i class="fas fa-save"></i> Guardar';
+        });
+    }
+    
+    // Eliminar marca
+    function eliminarMarca(id, nombre, elemento) {
+        if (!id) return;
+        
+        // Mostrar cargando
+        elemento.classList.add('opacity-50');
+        const btnEliminar = elemento.querySelector('.btn-eliminar-marca');
+        if (btnEliminar) {
+            btnEliminar.disabled = true;
+            btnEliminar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        }
+        
+        // Preparar datos
+        const formData = new FormData();
+        formData.append('id', id);
+        formData.append('csrfmiddlewaretoken', csrftoken);
+        
+        // Enviar solicitud
+        fetch(urlEliminar, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Eliminar del DOM con animación
+                elemento.style.height = elemento.offsetHeight + 'px';
+                elemento.style.transition = 'all 0.3s';
+                elemento.style.overflow = 'hidden';
+                
+                setTimeout(() => {
+                    elemento.style.height = '0';
+                    elemento.style.padding = '0';
+                    elemento.style.margin = '0';
+                    
+                    setTimeout(() => {
+                        elemento.remove();
+                        
+                        // Eliminar del select
+                        const option = selectorMarca.querySelector(`option[value="${id}"]`);
+                        if (option) {
+                            option.remove();
+                        }
+                        
+                        mostrarMensaje(`Marca "${nombre}" eliminada correctamente`, 'success');
+                    }, 300);
+                }, 10);
+            } else {
+                mostrarMensaje(data.error || 'Error al eliminar la marca', 'danger');
+                
+                // Restaurar elemento
+                elemento.classList.remove('opacity-50');
+                if (btnEliminar) {
+                    btnEliminar.disabled = false;
+                    btnEliminar.innerHTML = '<i class="fas fa-trash"></i>';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarMensaje('Error de conexión', 'danger');
+            
+            // Restaurar elemento
+            elemento.classList.remove('opacity-50');
+            if (btnEliminar) {
+                btnEliminar.disabled = false;
+                btnEliminar.innerHTML = '<i class="fas fa-trash"></i>';
+            }
+        });
+    }
+    
+    // Filtrar marcas
+    function filtrarMarcas(texto) {
+        const items = document.querySelectorAll('.marca-item');
+        const busqueda = texto.toLowerCase();
         
         items.forEach(item => {
             const nombre = item.querySelector('.marca-nombre').textContent.toLowerCase();
-            if (nombre.includes(search)) {
+            if (nombre.includes(busqueda)) {
                 item.style.display = '';
             } else {
                 item.style.display = 'none';
@@ -268,267 +275,48 @@ class SimpleMarcaManager {
         });
     }
     
-    // Crear una nueva marca
-    createMarca() {
-        const nombre = this.newMarcaInput.value.trim();
+    // Mostrar mensaje
+    function mostrarMensaje(mensaje, tipo) {
+        marcaMessage.textContent = mensaje;
+        marcaMessage.className = 'form-text mt-1';
         
-        if (!nombre) {
-            this.showMessage('El nombre de la marca es requerido', 'error');
-            this.newMarcaInput.focus();
-            return;
+        if (tipo === 'success') {
+            marcaMessage.classList.add('text-success');
+        } else if (tipo === 'danger') {
+            marcaMessage.classList.add('text-danger');
+        } else if (tipo === 'warning') {
+            marcaMessage.classList.add('text-warning');
         }
         
-        // Desactivar botón y mostrar indicador
-        this.saveMarcaButton.disabled = true;
-        this.saveMarcaButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        this.showMessage('', ''); // Limpiar mensajes anteriores
-        
-        // Crear datos para enviar
-        const formData = new FormData();
-        formData.append('nombre', nombre);
-        formData.append('csrfmiddlewaretoken', this.csrfToken);
-        
-        // Enviar solicitud AJAX
-        fetch(this.options.urls.crear, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Limpiar el input
-                this.newMarcaInput.value = '';
-                
-                // Mostrar mensaje de éxito
-                this.showMessage(`Marca "${data.nombre}" ${data.existed ? 'seleccionada' : 'creada'} correctamente`, 'success');
-                
-                // Seleccionar la marca en el select
-                this.addMarcaToSelect(data.id, data.nombre);
-                this.selectMarca(data.id, data.nombre);
-                
-                // Recargar la lista
-                this.loadMarcas();
-            } else {
-                this.showMessage('Error: ' + (data.error || 'Error desconocido'), 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error al crear marca:', error);
-            this.showMessage('Error de conexión', 'error');
-        })
-        .finally(() => {
-            // Restaurar botón
-            this.saveMarcaButton.disabled = false;
-            this.saveMarcaButton.innerHTML = '<i class="fas fa-save"></i> Guardar';
-        });
-    }
-    
-    // Confirmar eliminación de marca
-    confirmDeleteMarca(id, nombre) {
-        if (confirm(`¿Estás seguro de eliminar la marca "${nombre}"?`)) {
-            this.deleteMarca(id, nombre);
-        }
-    }
-    
-    // Eliminar una marca
-    deleteMarca(id, nombre) {
-        const item = this.marcaListContainer.querySelector(`.marca-item[data-id="${id}"]`);
-        if (item) {
-            item.classList.add('deleting');
-            const deleteBtn = item.querySelector('.delete-marca-btn');
-            if (deleteBtn) {
-                deleteBtn.disabled = true;
-                deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            }
-        }
-        
-        // Crear datos para enviar
-        const formData = new FormData();
-        formData.append('id', id);
-        formData.append('csrfmiddlewaretoken', this.csrfToken);
-        
-        // Enviar solicitud AJAX
-        fetch(this.options.urls.eliminar, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Eliminar del DOM con efecto
-                if (item) {
-                    item.style.height = item.offsetHeight + 'px';
-                    item.style.transition = 'all 0.3s';
-                    item.style.overflow = 'hidden';
-                    
-                    setTimeout(() => {
-                        item.style.height = '0';
-                        item.style.padding = '0';
-                        item.style.margin = '0';
-                        
-                        setTimeout(() => {
-                            item.remove();
-                            this.showMessage(`Marca "${nombre}" eliminada correctamente`, 'success');
-                            
-                            // Si no hay más marcas, mostrar mensaje
-                            if (!this.marcaListContainer.querySelector('.marca-item')) {
-                                this.marcaListContainer.innerHTML = '<div class="empty-message">No hay marcas disponibles</div>';
-                            }
-                        }, 300);
-                    }, 10);
-                }
-                
-                // Eliminar del select
-                this.removeMarcaFromSelect(id);
-            } else {
-                this.showMessage('Error: ' + (data.error || 'Error desconocido'), 'error');
-                
-                // Restaurar elemento
-                if (item) {
-                    item.classList.remove('deleting');
-                    const deleteBtn = item.querySelector('.delete-marca-btn');
-                    if (deleteBtn) {
-                        deleteBtn.disabled = false;
-                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-                    }
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error al eliminar marca:', error);
-            this.showMessage('Error de conexión', 'error');
-            
-            // Restaurar elemento
-            if (item) {
-                item.classList.remove('deleting');
-                const deleteBtn = item.querySelector('.delete-marca-btn');
-                if (deleteBtn) {
-                    deleteBtn.disabled = false;
-                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-                }
-            }
-        });
-    }
-    
-    // Seleccionar una marca
-    selectMarca(id, nombre) {
-        if (this.selector) {
-            // Establecer la opción seleccionada
-            this.selector.value = id;
-            
-            // Disparar evento change
-            const event = new Event('change');
-            this.selector.dispatchEvent(event);
-            
-            // Resaltar la opción en la lista
-            const items = this.marcaListContainer.querySelectorAll('.marca-item');
-            items.forEach(item => {
-                if (item.dataset.id === id) {
-                    item.classList.add('selected');
-                } else {
-                    item.classList.remove('selected');
-                }
-            });
-            
-            // Mostrar mensaje
-            this.showMessage(`Marca "${nombre}" seleccionada`, 'success');
-            
-            // Cerrar el panel después de seleccionar
+        // Auto-ocultar mensajes de éxito
+        if (tipo === 'success') {
             setTimeout(() => {
-                this.closeManager();
-            }, 1000);
-        }
-    }
-    
-    // Añadir marca al selector
-    addMarcaToSelect(id, nombre) {
-        if (!this.selector) return;
-        
-        // Verificar si ya existe
-        if (!this.selector.querySelector(`option[value="${id}"]`)) {
-            const option = document.createElement('option');
-            option.value = id;
-            option.text = nombre;
-            this.selector.add(option);
-        }
-    }
-    
-    // Eliminar marca del selector
-    removeMarcaFromSelect(id) {
-        if (!this.selector) return;
-        
-        const option = this.selector.querySelector(`option[value="${id}"]`);
-        if (option) {
-            option.remove();
-        }
-    }
-    
-    // Mostrar mensaje en el contenedor
-    showMessage(message, type) {
-        if (!this.messageContainer) return;
-        
-        // Limpiar clases anteriores
-        this.messageContainer.className = 'form-message mt-2';
-        
-        if (!message) {
-            this.messageContainer.textContent = '';
-            return;
-        }
-        
-        // Añadir clase según tipo
-        if (type === 'error') {
-            this.messageContainer.classList.add('text-danger');
-        } else if (type === 'success') {
-            this.messageContainer.classList.add('text-success');
-        } else if (type === 'info') {
-            this.messageContainer.classList.add('text-info');
-        }
-        
-        this.messageContainer.textContent = message;
-        
-        // Auto-eliminar mensajes de éxito después de unos segundos
-        if (type === 'success') {
-            setTimeout(() => {
-                this.messageContainer.style.transition = 'opacity 1s';
-                this.messageContainer.style.opacity = '0';
+                marcaMessage.style.opacity = '0';
+                marcaMessage.style.transition = 'opacity 0.5s';
                 
                 setTimeout(() => {
-                    this.messageContainer.textContent = '';
-                    this.messageContainer.style.opacity = '1';
-                }, 1000);
+                    marcaMessage.textContent = '';
+                    marcaMessage.style.opacity = '1';
+                }, 500);
             }, 3000);
         }
     }
     
-    // Obtener el token CSRF
-    getCsrfToken() {
-        const tokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
-        return tokenElement ? tokenElement.value : '';
+    // Configurar eventos
+    if (btnGestionar) {
+        btnGestionar.addEventListener('click', togglePanel);
     }
-}
-
-// Inicializar cuando el DOM esté cargado
-document.addEventListener('DOMContentLoaded', function() {
-    // Buscar configuración en un elemento data
-    const configEl = document.getElementById('marca-manager-config');
     
-    if (configEl) {
-        // Crear el gestor con la configuración del elemento
-        window.marcaManager = new SimpleMarcaManager({
-            selectorId: configEl.dataset.selectorId || 'id_marca',
-            createButtonId: configEl.dataset.createButtonId || 'btn-crear-marca',
-            containerSelector: configEl.dataset.containerSelector || '.marca-manager',
-            urls: {
-                listar: configEl.dataset.urlListar,
-                crear: configEl.dataset.urlCrear,
-                eliminar: configEl.dataset.urlEliminar
-            }
+    if (formNuevaMarca) {
+        formNuevaMarca.addEventListener('submit', function(e) {
+            e.preventDefault();
+            crearMarca(inputNuevaMarca.value.trim());
+        });
+    }
+    
+    if (buscarMarca) {
+        buscarMarca.addEventListener('input', function() {
+            filtrarMarcas(this.value);
         });
     }
 });
