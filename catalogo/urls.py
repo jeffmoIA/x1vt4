@@ -26,6 +26,11 @@ urlpatterns = [
     path('admin/marcas/listar/', views.listar_marcas_ajax, name='listar_marcas_ajax'),
     path('admin/marcas/', views.gestionar_marcas, name='gestionar_marcas'),
     path('api/marcas/', views.obtener_marcas_json, name='obtener_marcas_json'),
+    # Añade estas nuevas rutas:
+    path('admin/marcas/crear/', views.crear_marca, name='crear_marca'), 
+    path('admin/marcas/editar/', views.editar_marca, name='editar_marca'),  
+    path('admin/marcas/eliminar/', views.eliminar_marca, name='eliminar_marca'),  
+    path('admin/marcas/gestionar/', views.gestionar_marcas, name='gestionar_marcas_standalone'),
     # Vista para productos populares (cacheada)
     path('populares/', views.productos_populares, name='productos_populares'),
    

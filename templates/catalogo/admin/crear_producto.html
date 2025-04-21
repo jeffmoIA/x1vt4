@@ -97,8 +97,20 @@
                                 {{ field|as_crispy_field }}
                             {% endif %}
                         {% endfor %}
-                        <!-- Selector de marca usando el componente -->
-                        {% include 'catalogo/admin/selector_marcas.html' with marcas=form.fields.marca.queryset producto=form.instance %}
+                        <div class="input-group">
+                            <select name="marca" id="id_marca" class="form-select" required>
+                                <option value="">Seleccionar marca</option>
+                                {% for marca in marcas %}
+                                    <option value="{{ marca.id }}" {% if marca.id == producto.marca_id %}selected{% endif %}>
+                                        {{ marca.nombre }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <!-- Reemplazamos el botón modal por un enlace a gestionar marcas con parámetro de retorno -->
+                            <a href="{% url 'catalogo:gestionar_marcas' %}?return_to=crear_producto" class="btn btn-outline-primary">
+                                <i class="fas fa-cog"></i> Gestionar Marcas
+                            </a>
+                        </div>
                         <!-- Gestión de tallas -->
                         <h5 class="mt-4 mb-3">Tallas disponibles</h5>
                         <div class="card mb-4">

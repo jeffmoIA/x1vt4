@@ -75,84 +75,28 @@
         background-position: right calc(0.375em + 0.1875rem) center;
         background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
     }
-  </style>
+    
+    /* Estilo para los elementos eliminados pero aún en el DOM */
+    .form-deleted {
+        display: none;
+    }
+    
+    /* Estilo para resaltar imágenes previsualizadas */
+    .img-preview {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    
+    .img-preview:hover {
+        transform: scale(1.05);
+        border-color: #0d6efd;
+        box-shadow: 0 0 10px rgba(13, 110, 253, 0.3);
+    }
+</style>
 {% endblock %}
 {% block title %}{{ accion }} Producto{% endblock %}
 {% load crispy_forms_tags %}
 {% block content %}
-<style>
-    /* Estilos para la función de eliminación de imágenes */
-    img[src*="media/productos"],
-    .image-thumbnail,
-    .img-thumbnail {
-        cursor: pointer;
-        transition: opacity 0.2s;
-    }
-    
-    img[src*="media/productos"]:hover,
-    .image-thumbnail:hover, 
-    .img-thumbnail:hover {
-        opacity: 0.8;
-    }
-    
-    .delete-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.7);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
-    }
-    /* Estilos para la gestión de marcas */
-    .marca-list {
-        max-height: 300px;
-        overflow-y: auto;
-        border: 1px solid #dee2e6;
-        border-radius: 0.25rem;
-    }
-
-    .custom-scrollbar {
-        scrollbar-width: thin;
-        scrollbar-color: #ccc #f8f9fa;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: #f8f9fa;
-        border-radius: 4px;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background-color: #ccc;
-        border-radius: 4px;
-    }
-
-    /* Animaciones para mejor UX */
-    .list-group-item {
-        transition: all 0.3s ease;
-    }
-
-    .list-group-item:hover {
-        background-color: #f8f9fa;
-    }
-
-    .list-group-item .btn-danger {
-        opacity: 0;
-        transition: opacity 0.2s ease;
-    }
-
-    .list-group-item:hover .btn-danger {
-        opacity: 1;
-    }
-</style>
-
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-10 mx-auto">
@@ -170,14 +114,31 @@
                                 {{ field|as_crispy_field }}
                             {% endif %}
                         {% endfor %}
-                        <!-- Selector de marca usando el componente -->
-                        {% include 'catalogo/components/selector_marcas.html' with marcas=form.fields.marca.queryset producto=form.instance %}
+                        
+                        <!-- Selector de marca -->
+                        <div class="mb-3">
+                            <label for="id_marca" class="form-label">Marca</label>
+                            <div class="input-group">
+                                <select name="marca" id="id_marca" class="form-select" required>
+                                    <option value="">Seleccionar marca</option>
+                                    {% for marca in marcas %}
+                                        <option value="{{ marca.id }}" {% if marca.id == producto.marca.id %}selected{% endif %}>
+                                            {{ marca.nombre }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <!-- Enlace a gestionar marcas con parámetro de retorno y el ID del producto -->
+                                <a href="{% url 'catalogo:gestionar_marcas' %}?return_to=editar_producto&producto_id={{ producto.id }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-cog"></i> Gestionar Marcas
+                                </a>
+                            </div>
+                            <div class="form-text" id="marca-feedback">Selecciona la marca del producto</div>
                         </div>
+                        
                         <!-- Gestión de tallas -->
                         <h5 class="mt-4 mb-3">Tallas disponibles</h5>
                         <div class="card mb-4">
                             <div class="card-body">
-                                <!-- Renderizado explícito del management_form -->
                                 {{ talla_formset.management_form }}
                                 <table class="table table-borderless">
                                     <thead>
@@ -185,7 +146,7 @@
                                             <th>Talla</th>
                                             <th>Disponible</th>
                                             <th>Stock</th>
-                                            <th>Eliminar</th>
+                                            <th>Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody id="tallas-container">
@@ -199,8 +160,12 @@
                                                 <td>{{ talla_form.stock|as_crispy_field }}</td>
                                                 <td>
                                                     {% if talla_formset.can_delete %}
-                                                        <div style="display:none;">{{ talla_form.DELETE|as_crispy_field }}</div>
-                                                        <!-- El botón se añadirá vía JavaScript -->
+                                                        <div class="form-check">
+                                                            {{ talla_form.DELETE|as_crispy_field }}
+                                                        </div>
+                                                        <button type="button" class="btn btn-sm btn-danger btn-eliminar-talla">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
                                                     {% endif %}
                                                 </td>
                                             </tr>
@@ -255,10 +220,10 @@
                                                     
                                                     <div class="form-check mb-3">
                                                         <input type="checkbox" 
-                                                               class="form-check-input custom-principal-checkbox" 
-                                                               id="{{ imagen_form.es_principal.id_for_label }}" 
-                                                               name="{{ imagen_form.es_principal.html_name }}"
-                                                               {% if imagen_form.es_principal.value %}checked{% endif %}>
+                                                                class="form-check-input custom-principal-checkbox" 
+                                                                id="{{ imagen_form.es_principal.id_for_label }}" 
+                                                                name="{{ imagen_form.es_principal.html_name }}"
+                                                                {% if imagen_form.es_principal.value %}checked{% endif %}>
                                                         <label class="form-check-label fw-bold" for="{{ imagen_form.es_principal.id_for_label }}">
                                                             Es imagen principal
                                                         </label>
@@ -284,7 +249,7 @@
                                 </button>
                             </div>
                         </div>
-
+                        
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{% url 'catalogo:admin_lista_productos' %}" class="btn btn-outline-secondary">
                                 <i class="fas fa-times"></i> Cancelar
@@ -298,18 +263,16 @@
                                 </button>
                             </div>
                         </div>
-
                     </form>
-                </div>  
+                </div>
             </div>
         </div>
     </div>
 </div>
-{% block extra_js %}
-<script src="{% static 'js/producto/botones_fix.js' %}"></script>
-<script src="{% static 'js/catalogo/marca-manager.js' %}"></script>
-<script>
+{% endblock %}
 
+{% block extra_js %}
+<script>
     document.addEventListener('DOMContentLoaded', function() {
         // Obtener referencias a los botones y al formulario
         const btnAplicarCambios = document.getElementById('btn-aplicar-cambios');
@@ -360,237 +323,239 @@
             });
         }
 
-        // Script para manejar el botón de añadir talla
-        const addTallaButton = document.querySelector('button#add-talla, button.talla-add-btn');
-        const tallasContainer = document.getElementById('tallas-container');
+        // ---- GESTIÓN DE TALLAS ----
+        // Configurar los botones de eliminar tallas existentes
+        document.querySelectorAll('.btn-eliminar-talla').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const row = this.closest('.talla-form');
+                const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+                
+                if (deleteCheckbox) {
+                    // Si existe un checkbox DELETE (es una talla existente), lo marcamos
+                    deleteCheckbox.checked = true;
+                    // Ocultamos visualmente la fila
+                    row.classList.add('form-deleted');
+                } else {
+                    // Si no existe (es una talla nueva), la eliminamos del DOM
+                    row.remove();
+                }
+            });
+        });
 
-        if (addTallaButton && tallasContainer) {
-            addTallaButton.addEventListener('click', function() {
-                // Buscar el campo de TOTAL_FORMS
-                const totalForms = document.querySelector('[name="tallas-TOTAL_FORMS"]');
-                if (!totalForms) {
-                    console.error('No se encontró el contador de formularios de tallas');
+        // Botón para añadir nueva talla
+        const addTallaBtn = document.getElementById('add-talla');
+        const tallasContainer = document.getElementById('tallas-container');
+        
+        if (addTallaBtn && tallasContainer) {
+            addTallaBtn.addEventListener('click', function() {
+                // Obtener el contador de formularios total
+                const totalFormsInput = document.querySelector('[name="tallas-TOTAL_FORMS"]');
+                if (!totalFormsInput) {
+                    console.error('No se encontró el contador de formularios para tallas');
                     return;
                 }
                 
-                // Obtener el formulario vacío
-                const emptyForm = document.querySelector('.talla-form');
-                if (!emptyForm) {
-                    console.error('No se encontró una plantilla de formulario de talla');
+                // Número actual de formularios
+                const formCount = parseInt(totalFormsInput.value);
+                
+                // Obtener la primera fila como plantilla
+                const templateRow = tallasContainer.querySelector('.talla-form');
+                if (!templateRow) {
+                    console.error('No se encontró una plantilla de fila para tallas');
                     return;
                 }
                 
-                // Actualizar el contador
-                const formCount = parseInt(totalForms.value);
+                // Clonar la plantilla
+                const newRow = templateRow.cloneNode(true);
                 
-                // Crear clon del formulario
-                const newRow = emptyForm.cloneNode(true);
-                
-                // Actualizar índices en el HTML
+                // Actualizar IDs y nombres en la nueva fila
                 newRow.innerHTML = newRow.innerHTML
-                    .replace(/tallas-0-/g, `tallas-${formCount}-`)
-                    .replace(/tallas_0_/g, `tallas_${formCount}_`);
+                    .replace(/tallas-\d+-/g, `tallas-${formCount}-`)
+                    .replace(/id_tallas-\d+-/g, `id_tallas-${formCount}-`);
                 
-                // Limpiar valores
+                // Limpiar valores en la nueva fila
                 newRow.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
                     input.value = '';
                 });
                 
-                // Establecer checkbox a su valor predeterminado (marcado)
-                newRow.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                    checkbox.checked = true;
-                });
-                
-                // Añadir botón eliminar si no existe
-                const tdEliminar = newRow.querySelector('td:last-child');
-                if (tdEliminar && !tdEliminar.querySelector('.btn-eliminar')) {
-                    const btnEliminar = document.createElement('button');
-                    btnEliminar.type = 'button';
-                    btnEliminar.className = 'btn btn-sm btn-danger btn-eliminar';
-                    btnEliminar.innerHTML = '<i class="fas fa-trash"></i>';
-                    btnEliminar.onclick = function() {
-                        this.closest('tr').remove();
-                        // Actualizar contador de formularios
-                        totalForms.value = parseInt(totalForms.value) - 1;
-                    };
-                    tdEliminar.appendChild(btnEliminar);
+                // Asegurarse de que "disponible" esté marcado por defecto
+                const disponibleCheckbox = newRow.querySelector('input[type="checkbox"][name$="-disponible"]');
+                if (disponibleCheckbox) {
+                    disponibleCheckbox.checked = true;
                 }
                 
-                // Añadir el nuevo formulario
+                // Configurar botón eliminar para la nueva fila
+                const deleteBtn = newRow.querySelector('.btn-eliminar-talla');
+                if (deleteBtn) {
+                    // Eliminar eventos existentes
+                    const newDeleteBtn = deleteBtn.cloneNode(true);
+                    deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
+                    
+                    // Añadir nuevo evento
+                    newDeleteBtn.addEventListener('click', function() {
+                        newRow.remove();
+                    });
+                }
+                
+                // Añadir la nueva fila al contenedor
                 tallasContainer.appendChild(newRow);
                 
-                // Incrementar contador
-                totalForms.value = formCount + 1;
+                // Incrementar el contador de formularios
+                totalFormsInput.value = formCount + 1;
                 
-                console.log('Talla añadida correctamente');
+                console.log('Nueva talla añadida. Total forms:', totalFormsInput.value);
             });
         }
 
-    });
-    // Feedback visual al guardar
-    btnAplicarCambios.addEventListener('click', function() {
-        // Mostrar indicador de guardado
-        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aplicando...';
-        this.disabled = true;
+        // ---- GESTIÓN DE IMÁGENES ----
+        // Configurar los botones de eliminar imágenes existentes
+        document.querySelectorAll('.btn-eliminar-imagen').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const card = this.closest('.imagen-form');
+                const deleteCheckbox = card.querySelector('input[name$="-DELETE"]');
+                
+                if (deleteCheckbox) {
+                    // Si existe un checkbox DELETE (es una imagen existente), lo marcamos
+                    deleteCheckbox.checked = true;
+                    // Ocultamos visualmente la tarjeta
+                    card.classList.add('form-deleted');
+                } else {
+                    // Si no existe (es una imagen nueva), la eliminamos del DOM
+                    card.remove();
+                }
+            });
+        });
+
+        // Botón para añadir nueva imagen
+        const addImagenBtn = document.getElementById('add-imagen');
+        const imagenesContainer = document.getElementById('imagenes-container');
         
-        // Restaurar después de 2 segundos si hay error
-        setTimeout(() => {
-            if (this.disabled) {
-                this.innerHTML = '<i class="fas fa-sync-alt"></i> Aplicar cambios';
-                this.disabled = false;
-            }
-        }, 2000);
-    });
-
-    // Lo mismo para guardar y salir
-    btnGuardarSalir.addEventListener('click', function() {
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-            this.disabled = true;
-        });
-        // Lo mismo para guardar y salir
-    btnGuardarSalir.addEventListener('click', function() {
-        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-        this.disabled = true;
-    });
-
-    // Funcionalidad para añadir tallas
-    const addTallaBtn = document.getElementById('add-talla');
-    const tallasContainer = document.getElementById('tallas-container');
-
-    if (addTallaBtn && tallasContainer) {
-        addTallaBtn.addEventListener('click', function() {
-            // Obtener total de formularios actual
-            const totalFormsInput = document.querySelector('#id_tallas-TOTAL_FORMS');
-            if (!totalFormsInput) {
-                console.error('No se encontró el campo TOTAL_FORMS');
-                return;
-            }
-            
-            // Número actual de formularios
-            const formCount = parseInt(totalFormsInput.value);
-            
-            // Obtener formulario vacío (primera fila)
-            const emptyForm = document.querySelector('.talla-form');
-            if (!emptyForm) {
-                console.error('No se encontró la plantilla de talla');
-                return;
-            }
-            
-            // Crear clon del formulario
-            const newForm = emptyForm.cloneNode(true);
-            
-            // Actualizar IDs y nombres
-            newForm.innerHTML = newForm.innerHTML
-                .replace(/tallas-0-/g, `tallas-${formCount}-`)
-                .replace(/tallas_0_/g, `tallas_${formCount}_`);
-            
-            // Limpiar valores
-            newForm.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
-                input.value = '';
+        if (addImagenBtn && imagenesContainer) {
+            addImagenBtn.addEventListener('click', function() {
+                // Obtener el contador de formularios total
+                const totalFormsInput = document.querySelector('[name="imagenes-TOTAL_FORMS"]');
+                if (!totalFormsInput) {
+                    console.error('No se encontró el contador de formularios para imágenes');
+                    return;
+                }
+                
+                // Número actual de formularios
+                const formCount = parseInt(totalFormsInput.value);
+                
+                // Crear HTML para el nuevo formulario de imagen
+                const newFormHTML = `
+                    <div class="imagen-form col-md-4 mb-4" id="imagen-${formCount}">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Nueva imagen</span>
+                            </div>
+                            <div class="card-body">
+                                <input type="hidden" name="imagenes-${formCount}-id" id="id_imagenes-${formCount}-id">
+                                
+                                <div class="mb-3">
+                                    <label for="id_imagenes-${formCount}-imagen" class="form-label">Imagen</label>
+                                    <input type="file" name="imagenes-${formCount}-imagen" accept="image/*" class="form-control" id="id_imagenes-${formCount}-imagen" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_imagenes-${formCount}-orden" class="form-label">Orden</label>
+                                    <input type="number" name="imagenes-${formCount}-orden" value="${formCount + 1}" min="1" class="form-control" id="id_imagenes-${formCount}-orden">
+                                </div>
+                                
+                                <div class="form-check mb-3">
+                                    <input type="checkbox" class="form-check-input custom-principal-checkbox" id="id_imagenes-${formCount}-es_principal" name="imagenes-${formCount}-es_principal">
+                                    <label class="form-check-label fw-bold" for="id_imagenes-${formCount}-es_principal">
+                                        Es imagen principal
+                                    </label>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_imagenes-${formCount}-titulo" class="form-label">Título</label>
+                                    <input type="text" name="imagenes-${formCount}-titulo" class="form-control" id="id_imagenes-${formCount}-titulo" placeholder="Título descriptivo de la imagen">
+                                </div>
+                            </div>
+                            <div class="card-footer text-center">
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-danger btn-eliminar-imagen">
+                                        <i class="fas fa-trash"></i> Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Añadir el nuevo formulario al contenedor
+                imagenesContainer.insertAdjacentHTML('beforeend', newFormHTML);
+                
+                // Configurar el botón eliminar para la nueva imagen
+                const newCard = document.getElementById(`imagen-${formCount}`);
+                if (newCard) {
+                    const deleteBtn = newCard.querySelector('.btn-eliminar-imagen');
+                    if (deleteBtn) {
+                        deleteBtn.addEventListener('click', function() {
+                            newCard.remove();
+                        });
+                    }
+                }
+                
+                // Incrementar el contador de formularios
+                totalFormsInput.value = formCount + 1;
+                
+                console.log('Nueva imagen añadida. Total forms:', totalFormsInput.value);
+                
+                // Renumerar órdenes después de añadir
+                renumerarOrdenesImagenes();
             });
-            newForm.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                checkbox.checked = true; // Por defecto disponible
+        }
+        
+        // Función para renumerar los órdenes de las imágenes
+        function renumerarOrdenesImagenes() {
+            // Obtener todos los formularios de imágenes visibles (no marcados para eliminación)
+            const imagenForms = Array.from(document.querySelectorAll('.imagen-form:not(.form-deleted)'));
+            
+            // Renumerar los órdenes
+            imagenForms.forEach((form, index) => {
+                const ordenInput = form.querySelector('input[name$="-orden"]');
+                if (ordenInput) {
+                    ordenInput.value = index + 1;
+                }
             });
-            
-            // Incrementar contador
-            totalFormsInput.value = formCount + 1;
-            
-            // Añadir el nuevo formulario
-            tallasContainer.appendChild(newForm);
-            
-            console.log('Nueva talla añadida');
-        });
-    }
+        }
+        
+        // Renumerar órdenes al cargar la página
+        renumerarOrdenesImagenes();
+    });
 </script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Función para renumerar todos los campos de orden
-        function renumerarOrden() {
-            const contenedor = document.getElementById('imagenes-container');
-            if (!contenedor) return;
-            
-            // Obtener todos los formularios de imágenes
-            const formularios = contenedor.querySelectorAll('.imagen-form');
-            
-            // Si no hay formularios, no hay nada que hacer
-            if (formularios.length === 0) return;
-            
-            // Renumerar cada formulario
-            formularios.forEach(function(form, index) {
-                const inputOrden = form.querySelector('input[name*="-orden"]');
-                if (inputOrden) {
-                    inputOrden.value = index + 1; // Empezamos desde 1
-                }
-            });
-        }
-        
-        // Ejecutar al cargar la página
-        renumerarOrden();
-        
-        // Configurar el botón de añadir imagen
-        const btnAñadir = document.getElementById('add-imagen');
-        if (btnAñadir) {
-            btnAñadir.addEventListener('click', function() {
-                // Usar setTimeout para esperar a que se cree el formulario
-                setTimeout(renumerarOrden, 100);
-            });
-        }
-        
-        // Configurar los botones de eliminar en formularios existentes
-        function configurarBotonesEliminar() {
-            document.querySelectorAll('.btn-eliminar-imagen').forEach(function(btn) {
-                // Remover eventos existentes
-                const nuevoBtn = btn.cloneNode(true);
-                if (btn.parentNode) {
-                    btn.parentNode.replaceChild(nuevoBtn, btn);
-                }
-                
-                // Agregar nuevo evento
-                nuevoBtn.addEventListener('click', function() {
-                    // Encontrar y eliminar el contenedor del formulario
-                    const formContainer = this.closest('.imagen-form');
-                    if (formContainer && formContainer.parentNode) {
-                        formContainer.parentNode.removeChild(formContainer);
-                        // Renumerar después de eliminar
-                        renumerarOrden();
-                    }
-                });
-            });
-        }
-        
-        // Configurar botones existentes
-        configurarBotonesEliminar();
-        
-        // Añadir un observador de mutación para capturar nuevos botones de eliminar
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-                    // Buscar nuevos botones dentro de los nodos añadidos
-                    for (let i = 0; i < mutation.addedNodes.length; i++) {
-                        const node = mutation.addedNodes[i];
-                        if (node.nodeType === 1 && node.classList && node.classList.contains('imagen-form')) {
-                            const nuevoBtn = node.querySelector('.btn-eliminar-imagen');
-                            if (nuevoBtn) {
-                                nuevoBtn.addEventListener('click', function() {
-                                    const formContainer = this.closest('.imagen-form');
-                                    if (formContainer && formContainer.parentNode) {
-                                        formContainer.parentNode.removeChild(formContainer);
-                                        renumerarOrden();
-                                    }
-                                });
-                            }
-                        }
-                    }
+        // Configurar botones de eliminar tallas
+        document.querySelectorAll('.btn-eliminar-talla').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Buscar el checkbox DELETE correspondiente
+                const deleteCheckbox = this.closest('tr').querySelector('input[name$="-DELETE"]');
+                if (deleteCheckbox) {
+                    // Marcar para eliminar
+                    deleteCheckbox.checked = true;
+                    // Ocultar la fila
+                    this.closest('tr').style.display = 'none';
                 }
             });
         });
         
-        // Iniciar observación del contenedor
-        const contenedor = document.getElementById('imagenes-container');
-        if (contenedor) {
-            observer.observe(contenedor, { childList: true, subtree: true });
-        }
+        // Configurar botones de eliminar imágenes
+        document.querySelectorAll('.btn-eliminar-imagen').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Buscar el checkbox DELETE correspondiente
+                const deleteCheckbox = this.closest('.imagen-form').querySelector('input[name$="-DELETE"]');
+                if (deleteCheckbox) {
+                    // Marcar para eliminar
+                    deleteCheckbox.checked = true;
+                    // Ocultar el formulario
+                    this.closest('.imagen-form').style.display = 'none';
+                }
+            });
+        });
     });
 </script>
-{% endblock %}
 {% endblock %}

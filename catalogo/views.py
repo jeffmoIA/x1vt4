@@ -104,7 +104,8 @@ def editar_producto(request, producto_id):
     - Aplicar cambios: Guarda los cambios sin redireccionar, permaneciendo en el formulario
     - Guardar y salir: Guarda los cambios y redirecciona a la lista de productos
     """
-    producto = get_object_or_404(Producto, id=producto_id)
+    # Obtener el producto a editar
+    producto = get_object_or_404(Producto.objects.prefetch_related('tallas', 'imagenes'), id=producto_id)
     
     if request.method == 'POST':
         # Determinar tipo de solicitud
@@ -150,7 +151,6 @@ def editar_producto(request, producto_id):
         form = ProductoForm(instance=producto)
         talla_formset = TallaFormSet(instance=producto, prefix='tallas')
         imagen_formset = ImagenFormSet(instance=producto, prefix='imagenes')
-        marcas = Marca.objects.all().order_by('nombre')
     
     # Renderizar plantilla
     return render(request, 'catalogo/admin/editar_producto.html', {
@@ -158,7 +158,6 @@ def editar_producto(request, producto_id):
         'talla_formset': talla_formset,
         'imagen_formset': imagen_formset,
         'producto': producto,
-        'marcas': marcas,
         'accion': 'Editar'
     })
 
@@ -512,10 +511,19 @@ def gestionar_marcas(request):
     Vista para la página de administración de marcas.
     Permite ver, crear, editar y eliminar marcas.
     """
-    # Simplemente renderizamos la plantilla, el resto se maneja con AJAX
-    return render(request, 'catalogo/admin/gestionar_marcas.html')
-
-# Vista para crear una marca (tanto desde la página de gestión como desde los formularios de producto)
+    # Obtener parámetros de retorno
+    return_to = request.GET.get('return_to', '')
+    producto_id = request.GET.get('producto_id', '')
+    
+    # Pasar los parámetros al contexto para la plantilla
+    context = {
+        'return_to': return_to,
+        'producto_id': producto_id
+    }
+    
+    # Simplemente renderizamos la plantilla con el contexto
+    return render(request, 'catalogo/admin/gestionar_marcas.html', context)
+    
 @login_required
 @user_passes_test(es_admin)
 def crear_marca(request):
@@ -524,11 +532,11 @@ def crear_marca(request):
     Acepta solicitudes AJAX POST y devuelve JSON.
     """
     if request.method == 'POST':
-        nombre = request.POST.get('nombre', '').strip()
-        descripcion = request.POST.get('descripcion', '').strip()
+        nombre = request.POST.get('nombre', '').strip()  # Obtiene el nombre limpiando espacios
+        descripcion = request.POST.get('descripcion', '').strip()  # Obtiene la descripción limpiando espacios
         
         # Validación básica
-        if not nombre:
+        if not nombre:  # Verifica que el nombre no esté vacío
             return JsonResponse({
                 'success': False, 
                 'error': 'El nombre de la marca es obligatorio'
@@ -537,7 +545,7 @@ def crear_marca(request):
         try:
             # Verificar si ya existe una marca con ese nombre (case insensitive)
             marca_existente = Marca.objects.filter(nombre__iexact=nombre).first()
-            if marca_existente:
+            if marca_existente:  # Si ya existe una marca con ese nombre
                 return JsonResponse({
                     'success': False,
                     'error': f'Ya existe una marca con el nombre "{nombre}"'
@@ -555,7 +563,7 @@ def crear_marca(request):
                 'marca': {
                     'id': marca.id,
                     'nombre': marca.nombre,
-                    'descripcion': marca.descripcion,
+                    'descripcion': marca.descripcion or '',
                     'productos_count': 0  # Nueva marca sin productos
                 }
             })
@@ -564,7 +572,7 @@ def crear_marca(request):
             logger.error(f"Error al crear marca: {str(e)}")
             return JsonResponse({
                 'success': False, 
-                'error': 'Error al crear la marca. Por favor, inténtelo de nuevo.'
+                'error': f'Error al crear la marca: {str(e)}. Por favor, inténtelo de nuevo.'
             }, status=500)
     
     # Si no es POST, devolver error

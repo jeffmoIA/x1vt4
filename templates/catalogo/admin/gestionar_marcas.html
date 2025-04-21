@@ -64,9 +64,20 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Gestionar Marcas</h1>
         <div>
-            <a href="{% url 'catalogo:admin_lista_productos' %}" class="btn btn-outline-primary">
-                <i class="fas fa-list"></i> Volver a Productos
-            </a>
+            <!-- Botón dinámico para volver al formulario de origen -->
+            {% if return_to == 'crear_producto' %}
+                <a href="{% url 'catalogo:crear_producto' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left"></i> Volver a Crear Producto
+                </a>
+            {% elif return_to == 'editar_producto' and producto_id %}
+                <a href="{% url 'catalogo:editar_producto' producto_id %}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left"></i> Volver a Editar Producto
+                </a>
+            {% else %}
+                <a href="{% url 'catalogo:admin_lista_productos' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-list"></i> Volver a Productos
+                </a>
+            {% endif %}
             <button type="button" id="toggleAddForm" class="btn btn-success ms-2">
                 <i class="fas fa-plus"></i> Nueva Marca
             </button>
@@ -157,9 +168,7 @@
                     </div>
                     <div class="marca-actions">
                         <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-primary btn-edit-marca" data-id="${id}" ${disableEdit}>
-                                <i class="fas fa-edit"></i>
-                            </button>
+                            <!-- Eliminamos el botón de editar, dejando solo el de eliminar -->
                             <button type="button" class="btn btn-outline-danger btn-delete-marca" data-id="${id}" ${disableDelete}>
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -192,37 +201,6 @@
         </div>
     </div>
 </div>
-
-<!-- Modal para editar marca -->
-<div class="modal fade" id="editMarcaModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">Editar Marca</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editMarcaForm">
-                    <input type="hidden" id="edit_marca_id" name="id">
-                    <div class="mb-3">
-                        <label for="edit_nombre" class="form-label">Nombre</label>
-                        <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_descripcion" class="form-label">Descripción</label>
-                        <input type="text" class="form-control" id="edit_descripcion" name="descripcion">
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="saveEditBtn">
-                    <i class="fas fa-save"></i> Guardar Cambios
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -246,10 +224,9 @@
         const paginationContainer = document.getElementById('marcasPagination');
         
         // Modales
-        const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
-        const editModal = new bootstrap.Modal(document.getElementById('editMarcaModal'));
+        const deleteModalElement = document.getElementById('deleteConfirmModal');
+        const deleteModal = new bootstrap.Modal(deleteModalElement);
         const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-        const saveEditBtn = document.getElementById('saveEditBtn');
         
         // Cargar marcas al inicio
         loadMarcas();
@@ -312,31 +289,38 @@
             const endIndex = Math.min(startIndex + itemsPerPage, filteredMarcas.length);
             const marcasToShow = filteredMarcas.slice(startIndex, endIndex);
             
-            // Obtener template
-            const template = document.getElementById('marca-card-template').innerHTML;
-            
-            // Añadir cada marca al contenedor
+            // Generar HTML para cada marca
             marcasToShow.forEach(marca => {
                 const canDelete = marca.productos_count === 0;
                 const productsClass = canDelete ? '' : 'marca-with-products';
                 const disableDelete = canDelete ? '' : 'disabled title="No se puede eliminar: tiene productos asociados"';
                 
-                // Crear HTML de la marca usando template literal
-                const marcaHtml = template
-                    .replace('${id}', marca.id)
-                    .replace('${nombre}', marca.nombre)
-                    .replace('${descripcion}', marca.descripcion || 'Sin descripción')
-                    .replace('${productosCount}', marca.productos_count)
-                    .replace('${productsClass}', productsClass)
-                    .replace('${disableDelete}', disableDelete)
-                    .replace('${disableEdit}', ''); // Siempre se puede editar
+                // Crear el HTML para la marca
+                const marcaHtml = `
+                    <div class="col-md-4 mb-3 marca-item" data-id="${marca.id}">
+                        <div class="card marca-card ${productsClass}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h5 class="card-title mb-1 marca-nombre">${marca.nombre}</h5>
+                                        <p class="card-text marca-count">${marca.productos_count} productos asociados</p>
+                                        <p class="card-text text-muted small">${marca.descripcion || 'Sin descripción'}</p>
+                                    </div>
+                                    <div class="marca-actions">
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-danger btn-delete-marca" data-id="${marca.id}" ${disableDelete}>
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 
-                // Crear elemento temporal para convertir string a DOM
-                const temp = document.createElement('div');
-                temp.innerHTML = marcaHtml;
-                
-                // Añadir al contenedor
-                marcasContainer.appendChild(temp.firstElementChild);
+                // Agregar HTML al contenedor
+                marcasContainer.insertAdjacentHTML('beforeend', marcaHtml);
             });
             
             // Actualizar paginación
@@ -419,10 +403,21 @@
         function setupActionButtons() {
             // Botones de eliminar
             document.querySelectorAll('.btn-delete-marca').forEach(btn => {
-                btn.addEventListener('click', function() {
+                // Eliminar eventos anteriores para evitar duplicados
+                const newBtn = btn.cloneNode(true);
+                if (btn.parentNode) {
+                    btn.parentNode.replaceChild(newBtn, btn);
+                }
+                
+                // Añadir evento al nuevo botón
+                newBtn.addEventListener('click', function() {
+                    // Obtener datos de la marca
                     const marcaId = this.dataset.id;
-                    const marcaElement = document.querySelector(`.marca-item[data-id="${marcaId}"]`);
+                    const marcaElement = this.closest('.marca-item');
                     const marcaNombre = marcaElement.querySelector('.marca-nombre').textContent;
+                    
+                    // Debug para verificar que se captura correctamente
+                    console.log('Eliminar marca:', marcaId, marcaNombre);
                     
                     // Configurar el modal de confirmación
                     document.getElementById('deleteMarcaName').textContent = marcaNombre;
@@ -430,22 +425,6 @@
                     
                     // Mostrar modal
                     deleteModal.show();
-                });
-            });
-            
-            // Botones de editar
-            document.querySelectorAll('.btn-edit-marca').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const marcaId = this.dataset.id;
-                    const marca = allMarcas.find(m => m.id == marcaId);
-                    
-                    // Configurar el formulario de edición
-                    document.getElementById('edit_marca_id').value = marca.id;
-                    document.getElementById('edit_nombre').value = marca.nombre;
-                    document.getElementById('edit_descripcion').value = marca.descripcion || '';
-                    
-                    // Mostrar modal
-                    editModal.show();
                 });
             });
         }
@@ -542,9 +521,8 @@
                     // Mostrar mensaje de éxito
                     showSuccess(`Marca "${data.marca.nombre}" creada correctamente`);
                     
-                    // Añadir la nueva marca a la lista
-                    const newMarca = data.marca;
-                    allMarcas.unshift(newMarca); // Añadir al principio
+                    // Añadir la nueva marca al array y al select
+                    allMarcas.unshift(data.marca);  // Añadir al principio
                     filteredMarcas = [...allMarcas]; // Actualizar filtradas
                     
                     // Resetear formulario y ocultarlo
@@ -554,14 +532,6 @@
                     // Mostrar primera página donde estará la nueva marca
                     currentPage = 1;
                     renderMarcas();
-                    
-                    // Resaltar la nueva marca
-                    setTimeout(() => {
-                        const newMarcaElement = document.querySelector(`.marca-item[data-id="${newMarca.id}"]`);
-                        if (newMarcaElement) {
-                            newMarcaElement.querySelector('.marca-card').classList.add('marca-new');
-                        }
-                    }, 100);
                 } else {
                     // Mostrar error
                     showError(data.error || 'Error al crear la marca');
@@ -582,6 +552,9 @@
         confirmDeleteBtn.addEventListener('click', function() {
             const marcaId = this.dataset.id;
             
+            // Debug para verificar el ID
+            console.log('Confirmando eliminación de marca:', marcaId);
+            
             // Deshabilitar botón y mostrar cargando
             this.disabled = true;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminando...';
@@ -599,8 +572,12 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Respuesta del servidor:', response.status);
+                return response.json();
+            })
             .then(data => {
+                console.log('Datos recibidos:', data);
                 if (data.success) {
                     // Mostrar mensaje de éxito
                     showSuccess(data.message || 'Marca eliminada correctamente');
@@ -631,93 +608,6 @@
                 // Restaurar botón
                 this.disabled = false;
                 this.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
-            });
-        });
-        
-        // Guardar cambios en marca
-        saveEditBtn.addEventListener('click', function() {
-            // Obtener datos del formulario
-            const marcaId = document.getElementById('edit_marca_id').value;
-            const nombre = document.getElementById('edit_nombre').value.trim();
-            const descripcion = document.getElementById('edit_descripcion').value.trim();
-            
-            // Validación básica
-            if (!nombre) {
-                alert('El nombre de la marca es obligatorio');
-                return;
-            }
-            
-            // Deshabilitar botón y mostrar cargando
-            this.disabled = true;
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-            
-            // Preparar datos
-            const formData = new FormData();
-            formData.append('id', marcaId);
-            formData.append('nombre', nombre);
-            formData.append('descripcion', descripcion);
-            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-            
-            // Enviar petición
-            fetch('{% url "catalogo:editar_marca" %}', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Mostrar mensaje de éxito
-                    showSuccess(`Marca "${nombre}" actualizada correctamente`);
-                    
-                    // Actualizar la marca en la lista
-                    const index = allMarcas.findIndex(m => m.id == marcaId);
-                    if (index !== -1) {
-                        allMarcas[index] = { 
-                            ...allMarcas[index], 
-                            nombre, 
-                            descripcion 
-                        };
-                    }
-                    
-                    // Actualizar también en la lista filtrada
-                    const filteredIndex = filteredMarcas.findIndex(m => m.id == marcaId);
-                    if (filteredIndex !== -1) {
-                        filteredMarcas[filteredIndex] = { 
-                            ...filteredMarcas[filteredIndex], 
-                            nombre, 
-                            descripcion 
-                        };
-                    }
-                    
-                    // Ocultar modal
-                    editModal.hide();
-                    
-                    // Actualizar vista
-                    renderMarcas();
-                    
-                    // Resaltar la marca actualizada
-                    setTimeout(() => {
-                        const updatedMarcaElement = document.querySelector(`.marca-item[data-id="${marcaId}"]`);
-                        if (updatedMarcaElement) {
-                            updatedMarcaElement.querySelector('.marca-card').classList.add('marca-new');
-                        }
-                    }, 100);
-                } else {
-                    // Mostrar error
-                    showError(data.error || 'Error al actualizar la marca');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showError('Error de conexión al actualizar la marca');
-            })
-            .finally(() => {
-                // Restaurar botón
-                this.disabled = false;
-                this.innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
             });
         });
     });
