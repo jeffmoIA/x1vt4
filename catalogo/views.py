@@ -12,6 +12,7 @@ import time
 from django.views.decorators.http import require_POST
 from .models import Marca
 import os
+from django.db.models import Count
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import cache_page
 from django.db import models, IntegrityError, transaction
@@ -19,6 +20,8 @@ from utils.performance import query_debugger
 from django.core.cache import cache
 from django.views.decorators.cache import cache_page
 import logging
+from django.db import transaction, IntegrityError
+
 logger = logging.getLogger(__name__)  # Obtiene un logger para este módulo
 
 # Función auxiliar para verificar si el usuario es administrador
@@ -503,30 +506,38 @@ def listar_marcas_ajax(request):
     """
     Vista mejorada para listar todas las marcas en formato JSON,
     incluyendo conteo de productos para cada marca.
+    
+    Returns:
+        JsonResponse: Lista de marcas con su conteo de productos
     """
     try:
-        # Obtener todas las marcas con anotación de conteo de productos
-        from django.db.models import Count
-        marcas = Marca.objects.annotate(
-            productos_count=Count('productos')
-        ).order_by('nombre')
+        # Caché de 2 minutos para la lista de marcas (mejora rendimiento)
+        cache_key = 'marcas_list_admin'
+        marcas_list = cache.get(cache_key)
         
-        # Crear lista de diccionarios con id, nombre y conteo de productos
-        marcas_list = [
-            {
-                'id': marca.id, 
-                'nombre': marca.nombre,
-                'productos_count': marca.productos_count
-            } 
-            for marca in marcas
-        ]
+        if marcas_list is None:
+            # Obtener todas las marcas con anotación de conteo de productos
+            marcas = Marca.objects.annotate(
+                productos_count=Count('productos')
+            ).order_by('nombre')
+            
+            # Crear lista de diccionarios con id, nombre y conteo de productos
+            marcas_list = [
+                {
+                    'id': marca.id, 
+                    'nombre': marca.nombre,
+                    'productos_count': marca.productos_count
+                } 
+                for marca in marcas
+            ]
+            
+            # Guardar en caché por 2 minutos
+            cache.set(cache_key, marcas_list, 120)  # 120 segundos = 2 minutos
         
         # Retornar como JSON
         return JsonResponse({'success': True, 'marcas': marcas_list})
     except Exception as e:
         # En caso de error, registrar y retornar mensaje
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Error al listar marcas: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
@@ -535,9 +546,14 @@ def listar_marcas_ajax(request):
 @require_POST
 @transaction.atomic  # Esto es crucial para evitar duplicados
 def crear_marca_ajax(request):
-    """Vista optimizada para crear una marca vía AJAX desde Select2."""
+    """
+    Vista optimizada para crear una marca vía AJAX.
+    
+    Returns:
+        JsonResponse: Información de la marca creada o error
+    """
     try:
-        # Obtener el nombre de la marca
+        # Obtener el nombre de la marca y limpiarlo
         nombre = request.POST.get('nombre', '').strip()
         
         # Validación
@@ -548,29 +564,40 @@ def crear_marca_ajax(request):
             }, status=400)
         
         # Verificar si ya existe (case insensitive)
-        if Marca.objects.filter(nombre__iexact=nombre).exists():
-            # Si existe, devolver la marca existente
-            marca = Marca.objects.filter(nombre__iexact=nombre).first()
+        marca_existente = Marca.objects.filter(nombre__iexact=nombre).first()
+        if marca_existente:
+            # Si existe, devolver la marca existente con mensaje apropiado
             return JsonResponse({
                 'success': True,
-                'id': marca.id,
-                'nombre': marca.nombre,
-                'message': 'Marca seleccionada'
+                'id': marca_existente.id,
+                'nombre': marca_existente.nombre,
+                'message': 'Marca existente seleccionada',
+                'existed': True
             })
         
         # Crear nueva marca
         marca = Marca.objects.create(nombre=nombre)
+        
+        # Invalidar caché de marcas
+        cache.delete('marcas_list_admin')
         
         # Respuesta exitosa
         return JsonResponse({
             'success': True,
             'id': marca.id,
             'nombre': marca.nombre,
-            'message': 'Marca creada correctamente'
+            'message': 'Marca creada correctamente',
+            'existed': False
         })
+    except IntegrityError as e:
+        # Manejo específico para errores de integridad (duplicados)
+        logger.warning(f"Error de integridad al crear marca: {str(e)}")
+        return JsonResponse({
+            'success': False, 
+            'error': 'Ya existe una marca con este nombre'
+        }, status=400)
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
+        # Manejo general de excepciones
         logger.error(f"Error al crear marca: {str(e)}")
         return JsonResponse({
             'success': False, 
@@ -583,6 +610,9 @@ def crear_marca_ajax(request):
 def eliminar_marca_ajax(request):
     """
     Vista para eliminar una marca mediante AJAX.
+    
+    Returns:
+        JsonResponse: Resultado de la operación
     """
     try:
         # Obtener el ID de la marca
@@ -610,6 +640,9 @@ def eliminar_marca_ajax(request):
         # Eliminar la marca
         marca.delete()
         
+        # Invalidar caché de marcas
+        cache.delete('marcas_list_admin')
+        
         # Retornar respuesta exitosa
         return JsonResponse({
             'success': True,
@@ -617,5 +650,5 @@ def eliminar_marca_ajax(request):
         })
     except Exception as e:
         # Registrar el error y devolver respuesta de error
-        print(f"Error al eliminar marca: {str(e)}")
+        logger.error(f"Error al eliminar marca: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)

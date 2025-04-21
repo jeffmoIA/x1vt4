@@ -1,0 +1,56 @@
+/* Estilos para el modal de gestión de marcas */
+
+/* Destacar el campo de búsqueda */
+#buscarMarcaInput:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Estilizar elementos de lista de marcas */
+.marca-item {
+    transition: all 0.2s ease;
+}
+
+.marca-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Hacer que los botones sean más discretos hasta hover */
+.marca-item .btn {
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.marca-item:hover .btn {
+    opacity: 1;
+}
+
+/* Efecto para marca seleccionada */
+.marca-item.seleccionada {
+    background-color: #e8f4ff;
+}
+
+/* Mejoras para los botones del modal */
+#marcasModal .btn-seleccionar-marca:hover {
+    background-color: #0d6efd;
+    color: white;
+}
+
+#marcasModal .btn-eliminar-marca:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* Estilo para indicación de carga */
+.loading-indicator {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    border-top-color: #0d6efd;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
