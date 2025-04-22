@@ -160,9 +160,7 @@
                                                 <td>{{ talla_form.stock|as_crispy_field }}</td>
                                                 <td>
                                                     {% if talla_formset.can_delete %}
-                                                        <div class="form-check">
-                                                            {{ talla_form.DELETE|as_crispy_field }}
-                                                        </div>
+                                                        <div style="display:none;">{{ talla_form.DELETE }}</div>
                                                         <button type="button" class="btn btn-sm btn-danger btn-eliminar-talla">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
@@ -188,7 +186,7 @@
                                 <!-- Contenedor de imágenes -->
                                 <div id="imagenes-container" class="row">
                                     {% for imagen_form in imagen_formset %}
-                                        <div class="imagen-form col-md-4 mb-4" id="imagenes-{{ forloop.counter0 }}">
+                                        <div class="imagen-form col-md-4 mb-4" id="imagen-{{ forloop.counter0 }}">
                                             <div class="card h-100">
                                                 <div class="card-header d-flex justify-content-between align-items-center">
                                                     <span>Imagen #{{ forloop.counter }}</span>
@@ -198,46 +196,70 @@
                                                 </div>
                                                 <div class="card-body">
                                                     {{ imagen_form.id }}
-                                                    {{ imagen_form.DELETE.as_hidden }}
+                                                    <div style="display:none;">{{ imagen_form.DELETE }}</div>
                                                     
                                                     {% if imagen_form.instance.pk and imagen_form.instance.imagen %}
                                                         <div class="text-center mb-3">
                                                             <img src="{{ imagen_form.instance.imagen.url }}" 
                                                                 alt="{{ imagen_form.instance.titulo|default:'Imagen' }}"
-                                                                class="img-thumbnail" style="max-height: 150px;">
+                                                                class="img-thumbnail img-preview" style="max-height: 150px;">
                                                         </div>
                                                     {% endif %}
                                                     
                                                     <div class="mb-3">
-                                                        <label for="{{ imagen_form.imagen.id_for_label }}" class="form-label">Imagen</label>
+                                                        <label for="{{ imagen_form.imagen.id_for_label }}" class="form-label">
+                                                            {% if imagen_form.instance.pk %}Cambiar imagen{% else %}Imagen{% endif %}
+                                                        </label>
                                                         {{ imagen_form.imagen }}
+                                                        {% if imagen_form.imagen.errors %}
+                                                            <div class="invalid-feedback d-block">
+                                                                {{ imagen_form.imagen.errors }}
+                                                            </div>
+                                                        {% endif %}
                                                     </div>
                                                     
                                                     <div class="mb-3">
                                                         <label for="{{ imagen_form.orden.id_for_label }}" class="form-label">Orden</label>
                                                         {{ imagen_form.orden }}
+                                                        {% if imagen_form.orden.errors %}
+                                                            <div class="invalid-feedback d-block">
+                                                                {{ imagen_form.orden.errors }}
+                                                            </div>
+                                                        {% endif %}
                                                     </div>
                                                     
                                                     <div class="form-check mb-3">
                                                         <input type="checkbox" 
-                                                                class="form-check-input custom-principal-checkbox" 
-                                                                id="{{ imagen_form.es_principal.id_for_label }}" 
-                                                                name="{{ imagen_form.es_principal.html_name }}"
-                                                                {% if imagen_form.es_principal.value %}checked{% endif %}>
+                                                               class="form-check-input custom-principal-checkbox" 
+                                                               id="{{ imagen_form.es_principal.id_for_label }}" 
+                                                               name="{{ imagen_form.es_principal.html_name }}"
+                                                               {% if imagen_form.es_principal.value %}checked{% endif %}>
                                                         <label class="form-check-label fw-bold" for="{{ imagen_form.es_principal.id_for_label }}">
                                                             Es imagen principal
                                                         </label>
+                                                        {% if imagen_form.es_principal.errors %}
+                                                            <div class="invalid-feedback d-block">
+                                                                {{ imagen_form.es_principal.errors }}
+                                                            </div>
+                                                        {% endif %}
                                                     </div>
                                                     
                                                     <div class="mb-3">
                                                         <label for="{{ imagen_form.titulo.id_for_label }}" class="form-label">Título</label>
                                                         {{ imagen_form.titulo }}
+                                                        {% if imagen_form.titulo.errors %}
+                                                            <div class="invalid-feedback d-block">
+                                                                {{ imagen_form.titulo.errors }}
+                                                            </div>
+                                                        {% endif %}
                                                     </div>
                                                 </div>
                                                 <div class="card-footer text-center">
-                                                    <button type="button" class="btn btn-danger btn-eliminar-imagen">
-                                                        <i class="fas fa-trash"></i> Eliminar
-                                                    </button>
+                                                    <div class="btn-group">
+                                                        <button type="button" class="btn btn-danger btn-eliminar-imagen">
+                                                            <i class="fas fa-trash"></i> Eliminar
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -326,21 +348,21 @@
         // ---- GESTIÓN DE TALLAS ----
         // Configurar los botones de eliminar tallas existentes
         document.querySelectorAll('.btn-eliminar-talla').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const row = this.closest('.talla-form');
-                const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
-                
-                if (deleteCheckbox) {
-                    // Si existe un checkbox DELETE (es una talla existente), lo marcamos
-                    deleteCheckbox.checked = true;
-                    // Ocultamos visualmente la fila
-                    row.classList.add('form-deleted');
-                } else {
-                    // Si no existe (es una talla nueva), la eliminamos del DOM
-                    row.remove();
-                }
-            });
+        btn.addEventListener('click', function() {
+            const row = this.closest('.talla-form');
+            const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+            
+            if (deleteCheckbox) {
+                // Si existe un checkbox DELETE (es una talla existente), lo marcamos
+                deleteCheckbox.checked = true;
+                // Ocultamos visualmente la fila
+                row.style.display = 'none';
+            } else {
+                // Si no existe (es una talla nueva), la eliminamos del DOM
+                row.remove();
+            }
         });
+    });
 
         // Botón para añadir nueva talla
         const addTallaBtn = document.getElementById('add-talla');
@@ -408,20 +430,20 @@
         }
 
         // ---- GESTIÓN DE IMÁGENES ----
-        // Configurar los botones de eliminar imágenes existentes
+        // Configurar los botones de eliminar imágenes
         document.querySelectorAll('.btn-eliminar-imagen').forEach(btn => {
             btn.addEventListener('click', function() {
-                const card = this.closest('.imagen-form');
-                const deleteCheckbox = card.querySelector('input[name$="-DELETE"]');
+                const formContainer = this.closest('.imagen-form');
+                const deleteInput = formContainer.querySelector('input[name$="-DELETE"]');
                 
-                if (deleteCheckbox) {
-                    // Si existe un checkbox DELETE (es una imagen existente), lo marcamos
-                    deleteCheckbox.checked = true;
-                    // Ocultamos visualmente la tarjeta
-                    card.classList.add('form-deleted');
+                if (deleteInput) {
+                    // Si existe un campo DELETE (es una imagen existente), lo marcamos
+                    deleteInput.checked = true;
+                    // Ocultamos visualmente el contenedor
+                    formContainer.style.display = 'none';
                 } else {
                     // Si no existe (es una imagen nueva), la eliminamos del DOM
-                    card.remove();
+                    formContainer.remove();
                 }
             });
         });
@@ -525,37 +547,6 @@
         
         // Renumerar órdenes al cargar la página
         renumerarOrdenesImagenes();
-    });
-</script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Configurar botones de eliminar tallas
-        document.querySelectorAll('.btn-eliminar-talla').forEach(btn => {
-            btn.addEventListener('click', function() {
-                // Buscar el checkbox DELETE correspondiente
-                const deleteCheckbox = this.closest('tr').querySelector('input[name$="-DELETE"]');
-                if (deleteCheckbox) {
-                    // Marcar para eliminar
-                    deleteCheckbox.checked = true;
-                    // Ocultar la fila
-                    this.closest('tr').style.display = 'none';
-                }
-            });
-        });
-        
-        // Configurar botones de eliminar imágenes
-        document.querySelectorAll('.btn-eliminar-imagen').forEach(btn => {
-            btn.addEventListener('click', function() {
-                // Buscar el checkbox DELETE correspondiente
-                const deleteCheckbox = this.closest('.imagen-form').querySelector('input[name$="-DELETE"]');
-                if (deleteCheckbox) {
-                    // Marcar para eliminar
-                    deleteCheckbox.checked = true;
-                    // Ocultar el formulario
-                    this.closest('.imagen-form').style.display = 'none';
-                }
-            });
-        });
     });
 </script>
 {% endblock %}

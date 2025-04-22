@@ -33,13 +33,12 @@ class ProductoForm(forms.ModelForm):
 TallaFormSet = inlineformset_factory(
     Producto, TallaProducto, 
     fields=('talla', 'disponible', 'stock'),
-    extra=0,  # Cambia de 1 a 0 para que no añada formularios extra
+    extra=1,  # Añade un formulario vacío para nuevas tallas
     can_delete=True,
     min_num=0,
     validate_min=False,
     max_num=15,
     validate_max=True,
-    absolute_max=20,
     widgets={
         'talla': forms.TextInput(attrs={
             'class': 'form-control', 
@@ -55,27 +54,11 @@ TallaFormSet = inlineformset_factory(
 )
 
 # Formset para imágenes
-ImagenFormSet = inlineformset_factory(
-    Producto, ImagenProducto,
-    fields=('imagen', 'titulo', 'orden', 'es_principal'),
-    extra=1,  # Mostrar solo 1 formulario extra
-    max_num=10,  # Máximo 10 imágenes
-    validate_max=True,  # Validar el máximo
-    absolute_max=15,  # Límite absoluto para prevenir ataques
-    can_delete=True,
-    widgets={
-        'imagen': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
-        'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título de la imagen'}),
-        'orden': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
-        'es_principal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-    }
-)
-
 # Formset para imágenes optimizado con mejor manejo de eliminación
 ImagenFormSet = inlineformset_factory(
     Producto, ImagenProducto,
     fields=('imagen', 'titulo', 'orden', 'es_principal'),
-    extra=0,  # No añadir formularios extra (lo haremos con JavaScript)
+    extra=0,  # Cambiamos de 1 a 0 para que no añada formularios extra automáticamente
     can_delete=True,
     max_num=10,  # Máximo 10 imágenes
     validate_max=True,
@@ -98,3 +81,5 @@ ImagenFormSet = inlineformset_factory(
         }),
     }
 )
+
+

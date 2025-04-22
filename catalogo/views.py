@@ -104,8 +104,7 @@ def editar_producto(request, producto_id):
     - Aplicar cambios: Guarda los cambios sin redireccionar, permaneciendo en el formulario
     - Guardar y salir: Guarda los cambios y redirecciona a la lista de productos
     """
-    # Obtener el producto a editar
-    producto = get_object_or_404(Producto.objects.prefetch_related('tallas', 'imagenes'), id=producto_id)
+    producto = get_object_or_404(Producto, id=producto_id)
     
     if request.method == 'POST':
         # Determinar tipo de solicitud
@@ -146,11 +145,17 @@ def editar_producto(request, producto_id):
         else:
             # Si hay errores, mostrar mensajes
             messages.error(request, 'Hay errores en el formulario')
+            # Para depuración
+            print("Errores en form:", form.errors)
+            print("Errores en talla_formset:", talla_formset.errors)
+            print("Errores en imagen_formset:", imagen_formset.errors)
     else:
         # Para solicitudes GET
         form = ProductoForm(instance=producto)
+        # Asegurarse de que se inicialicen correctamente los formsets
         talla_formset = TallaFormSet(instance=producto, prefix='tallas')
         imagen_formset = ImagenFormSet(instance=producto, prefix='imagenes')
+        marcas = Marca.objects.all().order_by('nombre')
     
     # Renderizar plantilla
     return render(request, 'catalogo/admin/editar_producto.html', {
@@ -158,6 +163,7 @@ def editar_producto(request, producto_id):
         'talla_formset': talla_formset,
         'imagen_formset': imagen_formset,
         'producto': producto,
+        'marcas': marcas,
         'accion': 'Editar'
     })
 

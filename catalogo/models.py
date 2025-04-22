@@ -212,11 +212,12 @@ def validate_image_size(image):
     if hasattr(image, 'size') and image.size > max_size:
         raise ValidationError(f'La imagen es demasiado grande. El tamaño máximo permitido es 5MB.')
 
+
 class ImagenProducto(models.Model):
     # Relación con el producto
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='imagenes')
     
-    # Campo para la imagen principal procesada automáticamente
+    # Campo para la imagen
     imagen = ProcessedImageField(
         upload_to='productos/imagenes/',
         processors=[
@@ -300,15 +301,15 @@ class ImagenProducto(models.Model):
         return f"Imagen {self.orden}{principal_str} de {self.producto.nombre}"
     
     def save(self, *args, **kwargs):
-        """Método personalizado para guardar, con lógica para imagen principal"""
+        """Método personalizado para guardar"""
         # Si esta imagen se marca como principal, quitar el flag de las demás
-        if self.es_principal:
+        if self.es_principal and self.producto_id:  # Asegurar que tenemos producto
             ImagenProducto.objects.filter(
                 producto=self.producto, 
                 es_principal=True
             ).exclude(id=self.id or 0).update(es_principal=False)
         
-        # Si es la primera imagen para el producto, marcarla como principal
+        # Si es la primera imagen, marcarla como principal
         elif not self.id and not ImagenProducto.objects.filter(producto=self.producto).exists():
             self.es_principal = True
             
@@ -320,6 +321,7 @@ class ImagenProducto(models.Model):
         if not self.id and ImagenProducto.objects.filter(producto=self.producto).count() >= 10:
             raise ValidationError("No se pueden añadir más de 10 imágenes por producto.")
         
+        # Guardar normalmente
         super().save(*args, **kwargs)
     
     def get_thumbnail_url(self):
@@ -341,3 +343,4 @@ def imagen_producto_deleted(sender, instance, **kwargs):
         """Invalidar caché de producto cuando se elimina una imagen"""
         from utils.cache_utils import invalidate_model_cache
         invalidate_model_cache('producto', instance.producto.id)
+
